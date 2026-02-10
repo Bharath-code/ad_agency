@@ -358,6 +358,10 @@ export const saveResult = mutation({
 	},
 	handler: async (ctx, args) => {
 		await requireProjectOwner(ctx, args.projectId);
+		const query = await ctx.db.get(args.queryId);
+		if (!query || query.projectId !== args.projectId) {
+			throw new Error('Intent query does not belong to this project');
+		}
 
 		return ctx.db.insert('results', {
 			...args,

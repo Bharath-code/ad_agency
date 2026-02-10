@@ -65,6 +65,7 @@ export const create = mutation({
 	},
 	handler: async (ctx, args) => {
 		const user = await requireUser(ctx);
+		const primaryCompetitorName = args.competitors[0]?.name ?? 'market leaders';
 
 		// Create project
 		const projectId = await ctx.db.insert('projects', {
@@ -87,15 +88,11 @@ export const create = mutation({
 		// Seed 30 intent queries from templates
 		for (const template of INTENT_QUERY_TEMPLATES) {
 			// Replace placeholders with actual values
-			let query = template.query
+			const query = template.query
 				.replace('{PRODUCT}', args.name)
 				.replace('{INDUSTRY}', args.industry)
-				.replace('{USE_CASE}', args.industry);
-
-			// For competitor-specific queries, use first competitor
-			if (args.competitors.length > 0) {
-				query = query.replace('{COMPETITOR}', args.competitors[0].name);
-			}
+				.replace('{USE_CASE}', args.industry)
+				.replace('{COMPETITOR}', primaryCompetitorName);
 
 			await ctx.db.insert('intentQueries', {
 				projectId,
@@ -162,6 +159,15 @@ export const remove = mutation({
 
 		for (const r of results) {
 			await ctx.db.delete(r._id);
+		}
+
+		const reports = await ctx.db
+			.query('weeklyReports')
+			.withIndex('by_project', (q) => q.eq('projectId', args.projectId))
+			.collect();
+
+		for (const report of reports) {
+			await ctx.db.delete(report._id);
 		}
 
 		// Finally delete the project

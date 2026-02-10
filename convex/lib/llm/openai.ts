@@ -22,14 +22,22 @@ export function createOpenAIProvider(apiKey: string): LLMProvider {
 				temperature: prompt.temperature ?? 0.3,
 				maxOutputTokens: prompt.maxTokens ?? 500,
 			});
+			const normalizedUsage = usage as
+				| {
+						inputTokens?: number;
+						outputTokens?: number;
+						promptTokens?: number;
+						completionTokens?: number;
+				  }
+				| undefined;
 
 			return {
 				content: text,
 				provider: 'openai',
 				latencyMs: Date.now() - startTime,
 				tokenUsage: {
-					input: usage?.totalTokens ?? 0,
-					output: usage?.totalTokens ?? 0,
+					input: normalizedUsage?.inputTokens ?? normalizedUsage?.promptTokens ?? 0,
+					output: normalizedUsage?.outputTokens ?? normalizedUsage?.completionTokens ?? 0,
 				},
 			};
 		},

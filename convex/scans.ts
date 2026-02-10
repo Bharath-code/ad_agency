@@ -23,6 +23,23 @@ import {
 	SYSTEM_PROMPT,
 } from './lib/prompts';
 
+function deriveConfidence(
+	totalRunsPlanned: number,
+	successfulRuns: number,
+	consensusRatio: number,
+): 'high' | 'medium' | 'low' {
+	const completionRatio = successfulRuns / totalRunsPlanned;
+	const score = completionRatio * consensusRatio;
+
+	if (score >= 0.85) {
+		return 'high';
+	}
+	if (score >= 0.6) {
+		return 'medium';
+	}
+	return 'low';
+}
+
 async function analyzeWithConfidence(
 	router: ProviderRouter,
 	queryText: string,
@@ -61,14 +78,14 @@ async function analyzeWithConfidence(
 
 	const sortedPositions = Object.entries(positionCounts).sort(([, a], [, b]) => b - a);
 	const consensusPosition = sortedPositions[0][0] as 'primary' | 'secondary' | 'not_mentioned';
+	const consensusVotes = sortedPositions[0][1];
 
 	const mentionedCount = successfulRuns.filter((r) => r.mentioned).length;
-	const agreementRate = successfulRuns.length / 3;
-	const confidence: 'high' | 'medium' | 'low' =
-		agreementRate >= 0.9 ? 'high' : agreementRate >= 0.6 ? 'medium' : 'low';
+	const consensusRatio = consensusVotes / successfulRuns.length;
+	const confidence = deriveConfidence(runConfigs.length, successfulRuns.length, consensusRatio);
 
 	const consensusResult: BrandVisibilityResponse = {
-		mentioned: mentionedCount >= 2,
+		mentioned: mentionedCount > successfulRuns.length / 2,
 		position: consensusPosition,
 		context: successfulRuns[0].context,
 		confidence,
@@ -115,7 +132,9 @@ async function analyzeCompetitorWithConfidence(
 		allReasons.push(...run.reasons);
 	}
 
-	const winner = Object.entries(winnerCounts).sort(([, a], [, b]) => b - a)[0][0];
+	const winnerResult = Object.entries(winnerCounts).sort(([, a], [, b]) => b - a)[0];
+	const winner = winnerResult[0];
+	const winnerVotes = winnerResult[1];
 
 	const reasonCounts: Record<string, number> = {};
 	for (const reason of allReasons) {
@@ -128,13 +147,17 @@ async function analyzeCompetitorWithConfidence(
 		.slice(0, 3)
 		.map(([reason]) => reason);
 
+	while (topReasons.length < 3) {
+		topReasons.push('insufficient signal');
+	}
+
 	const consensusResult: CompetitorAdvantageResponse = {
 		winner,
 		reasons: topReasons as [string, string, string],
 	};
 
-	const agreementRate = successfulRuns.length / 3;
-	const confidence = agreementRate >= 0.9 ? 'high' : agreementRate >= 0.6 ? 'medium' : 'low';
+	const consensusRatio = winnerVotes / successfulRuns.length;
+	const confidence = deriveConfidence(runConfigs.length, successfulRuns.length, consensusRatio);
 
 	return { result: consensusResult, confidence, runs: successfulRuns.length, cached: false };
 }
@@ -178,22 +201,43 @@ async function generateFixesWithConfidence(
 	}
 
 	const aggregateField = (field: keyof PositioningFixResponse) => {
-		const counts: Record<string, number> = {};
+		const counts = new Map<string, { votes: number; value: string }>();
 		for (const run of successfulRuns) {
-			const value = run[field]?.toLowerCase().trim() || '';
-			counts[value] = (counts[value] || 0) + 1;
+			const value = run[field]?.trim();
+			if (!value) {
+				continue;
+			}
+
+			const key = value.toLowerCase();
+			const existing = counts.get(key);
+			if (existing) {
+				existing.votes += 1;
+			} else {
+				counts.set(key, { votes: 1, value });
+			}
 		}
-		return Object.entries(counts).sort(([, a], [, b]) => b - a)[0][0];
+
+		const topMatch = [...counts.values()].sort((a, b) => b.votes - a.votes)[0];
+		return {
+			value: topMatch?.value ?? '',
+			votes: topMatch?.votes ?? 0,
+		};
 	};
+
+	const positioningFix = aggregateField('positioningFix');
+	const contentSuggestion = aggregateField('contentSuggestion');
+	const messagingFix = aggregateField('messagingFix');
 
 	const consensusResult: PositioningFixResponse = {
-		positioningFix: aggregateField('positioningFix'),
-		contentSuggestion: aggregateField('contentSuggestion'),
-		messagingFix: aggregateField('messagingFix'),
+		positioningFix: positioningFix.value,
+		contentSuggestion: contentSuggestion.value,
+		messagingFix: messagingFix.value,
 	};
 
-	const agreementRate = successfulRuns.length / 3;
-	const confidence = agreementRate >= 0.9 ? 'high' : agreementRate >= 0.6 ? 'medium' : 'low';
+	const consensusRatio =
+		(positioningFix.votes + contentSuggestion.votes + messagingFix.votes) /
+		(successfulRuns.length * 3);
+	const confidence = deriveConfidence(runConfigs.length, successfulRuns.length, consensusRatio);
 
 	return { result: consensusResult, confidence, runs: successfulRuns.length, cached: false };
 }
