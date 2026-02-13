@@ -216,11 +216,13 @@ let openFaq = $state<number | null>(null);
                                         inputmode="url"
                                         bind:value={url}
                                         name="website"
+                                        id="website-url"
                                         autocomplete="off"
                                         spellcheck="false"
                                         placeholder="https://yourproduct.com…"
                                         aria-label="Your product URL"
                                         class="scan-input"
+                                        onkeydown={(e) => e.key === 'Enter' && document.querySelector<HTMLAnchorElement>('.scan-btn')?.click()}
                                     />
                                     <Button.Root
                                         variant="brand"
