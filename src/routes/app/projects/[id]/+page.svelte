@@ -11,11 +11,13 @@ import TopWins from '$lib/components/dashboard/TopWins.svelte';
 import VisibilityScore from '$lib/components/dashboard/VisibilityScore.svelte';
 import CompetitorList from '$lib/components/project/CompetitorList.svelte';
 import ScanButton from '$lib/components/project/ScanButton.svelte';
+
 import Input from '$lib/components/ui/input.svelte';
 import Label from '$lib/components/ui/label.svelte';
 import Modal from '$lib/components/ui/modal.svelte';
 import Spinner from '$lib/components/ui/spinner.svelte';
 import { convex, convexUser } from '$lib/stores/auth';
+import { toasts } from '$lib/stores/toast';
 
 type ProjectView = Pick<
 	Doc<'projects'>,
@@ -68,10 +70,11 @@ onMount(() => {
 
 async function loadProject() {
 	try {
-		// Load project details
-		const projectData = await convex.query(api.projects.get, {
-			projectId,
-		});
+		const [projectData, competitorData, summary] = await Promise.all([
+			convex.query(api.projects.get, { projectId }).catch(() => null),
+			convex.query(api.competitors.listByProject, { projectId }).catch(() => []),
+			convex.query(api.results.getDashboardSummary, { projectId }).catch(() => null),
+		]);
 
 		if (!projectData) {
 			if (import.meta.env.VITE_BYPASS_AUTH === 'true') {
@@ -82,41 +85,10 @@ async function loadProject() {
 					createdAt: Date.now(),
 					description: 'A mock project for UI testing.',
 				};
-			} else {
-				goto('/app/projects');
-				return;
-			}
-		} else {
-			project = projectData;
-		}
-
-		// Load competitors
-		try {
-			const competitorData = await convex.query(api.competitors.listByProject, { projectId });
-			competitors = competitorData;
-		} catch (e) {
-			if (import.meta.env.VITE_BYPASS_AUTH === 'true') {
 				competitors = [
-					{
-						_id: 'c1' as Id<'competitors'>,
-						name: 'Competitor A',
-						url: 'https://a.com',
-					},
-					{
-						_id: 'c2' as Id<'competitors'>,
-						name: 'Competitor B',
-						url: 'https://b.com',
-					},
+					{ _id: 'c1' as Id<'competitors'>, name: 'Competitor A', url: 'https://a.com' },
+					{ _id: 'c2' as Id<'competitors'>, name: 'Competitor B', url: 'https://b.com' },
 				];
-			}
-		}
-
-		// Load dashboard data
-		try {
-			const summary = await convex.query(api.results.getDashboardSummary, { projectId });
-			dashboardData = summary;
-		} catch (e) {
-			if (import.meta.env.VITE_BYPASS_AUTH === 'true') {
 				dashboardData = {
 					visibilityScore: 68,
 					totalQueries: 40,
@@ -126,7 +98,7 @@ async function loadProject() {
 						{
 							query: 'best ai agency',
 							context: 'Brand appears in primary recommendation.',
-							confidence: 'high',
+							confidence: 'high' as const,
 						},
 					],
 					topMisses: [
@@ -145,10 +117,26 @@ async function loadProject() {
 						},
 					],
 				};
+			} else {
+				goto('/app/projects');
+				return;
 			}
+		} else {
+			project = projectData;
+			competitors = competitorData;
+			dashboardData = summary;
 		}
 	} catch (error) {
 		console.error('Failed to load project:', error);
+		if (import.meta.env.VITE_BYPASS_AUTH === 'true') {
+			project = {
+				_id: projectId,
+				name: 'Sandbox Project',
+				industry: 'Software',
+				createdAt: Date.now(),
+				description: 'A mock project for UI testing.',
+			};
+		}
 	} finally {
 		isLoading = false;
 	}
@@ -157,18 +145,23 @@ async function loadProject() {
 async function runScan() {
 	scanStatus = 'scanning';
 	try {
-		await convex.action(api.scans.runScan, { projectId });
+		const result = await convex.action(api.scans.runScan, { projectId });
 		scanStatus = 'success';
-		// Reload dashboard data
+		toasts.success(`Scan completed! Analyzed ${result.resultsCount} queries.`);
 		const summary = await convex.query(api.results.getDashboardSummary, { projectId });
 		dashboardData = summary;
-		// Reset status after 3 seconds
 		setTimeout(() => {
 			scanStatus = 'idle';
 		}, 3000);
 	} catch (error) {
+		const message = error instanceof Error ? error.message : 'Unknown error';
 		console.error('Scan failed:', error);
 		scanStatus = 'error';
+		toasts.error(
+			message.includes('limit')
+				? 'Scan limit reached. Upgrade your plan for more scans.'
+				: `Scan failed: ${message}`,
+		);
 		setTimeout(() => {
 			scanStatus = 'idle';
 		}, 3000);

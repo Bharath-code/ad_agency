@@ -1,5 +1,5 @@
 <script lang="ts">
-import { Plus } from 'lucide-svelte';
+import { ChevronDown, Plus } from 'lucide-svelte';
 import { onMount } from 'svelte';
 import { api } from '$convex/_generated/api';
 import type { Id } from '$convex/_generated/dataModel';
@@ -13,6 +13,7 @@ import * as Button from '$lib/components/ui/button/index.js';
 import EmptyState from '$lib/components/ui/empty-state.svelte';
 import Spinner from '$lib/components/ui/spinner.svelte';
 import { convex, convexUser } from '$lib/stores/auth';
+import { toasts } from '$lib/stores/toast';
 
 type ProjectItem = {
 	_id: Id<'projects'>;
@@ -77,6 +78,7 @@ type TranscriptResult = {
 // State
 let isDataLoading = $state(true);
 let projects = $state<ProjectItem[]>([]);
+let selectedProjectId = $state<Id<'projects'> | null>(null);
 let dashboardData = $state<DashboardSummary | null>(null);
 let competitorData = $state<CompetitorComparison | null>(null);
 let transcriptData = $state<TranscriptResult[]>([]);
@@ -99,8 +101,9 @@ async function loadProjects(_userId: unknown) {
 		const userProjects = await convex.query(api.projects.list, {});
 		projects = userProjects;
 
-		// Load dashboard for first project
 		if (userProjects.length > 0) {
+			selectedProjectId = userProjects[0]._id;
+			await loadDashboard(userProjects[0]._id);
 			await loadDashboard(userProjects[0]._id);
 		} else if (import.meta.env.VITE_BYPASS_AUTH === 'true') {
 			// Mock project for sandbox mode
@@ -225,28 +228,50 @@ async function loadDashboard(projectId: Id<'projects'>) {
 }
 
 async function runScan() {
-	if (!projects.length || isScanning) return;
+	if (!selectedProjectId || isScanning) return;
 
 	isScanning = true;
 	try {
-		await convex.action(api.scans.runScan, {
-			projectId: projects[0]._id,
+		const result = await convex.action(api.scans.runScan, {
+			projectId: selectedProjectId,
 		});
-		// Reload dashboard after scan
-		await loadDashboard(projects[0]._id);
+		toasts.success(`Scan completed! Analyzed ${result.resultsCount} queries.`);
+		await loadDashboard(selectedProjectId);
 	} catch (error) {
+		const message = error instanceof Error ? error.message : 'Unknown error';
 		console.error('Scan failed:', error);
-		alert('Scan failed. Check console for details.');
+		toasts.error(
+			message.includes('limit')
+				? 'Scan limit reached. Upgrade your plan for more scans.'
+				: `Scan failed: ${message}`,
+		);
 	} finally {
 		isScanning = false;
 	}
+}
+
+function selectProject(projectId: Id<'projects'>) {
+	selectedProjectId = projectId;
+	loadDashboard(projectId);
 }
 </script>
 
 <div class="dashboard">
     <header class="dashboard-header">
-        <div>
-            <h1>Dashboard</h1>
+        <div class="header-content">
+            {#if projects.length > 1}
+                <select 
+                    class="project-selector"
+                    value={selectedProjectId ?? ''}
+                    onchange={(e) => selectProject(e.currentTarget.value as Id<'projects'>)}
+                >
+                    {#each projects as project}
+                        <option value={project._id}>{project.name}</option>
+                    {/each}
+                </select>
+            {:else}
+                <h1>Dashboard</h1>
+            {/if}
             <p class="subtitle">
                 Track your brand's visibility in AI assistant responses
             </p>
@@ -364,9 +389,30 @@ async function runScan() {
         margin-bottom: var(--space-8);
     }
 
+    .header-content {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-1);
+    }
+
     .dashboard-header h1 {
         font-size: var(--text-3xl);
-        margin-bottom: var(--space-1);
+        margin: 0;
+    }
+
+    .project-selector {
+        font-size: var(--text-2xl);
+        font-weight: 700;
+        background: transparent;
+        border: none;
+        color: inherit;
+        cursor: pointer;
+        padding: 0;
+        margin: 0;
+    }
+
+    .project-selector:hover {
+        color: var(--color-brand);
     }
 
     .subtitle {

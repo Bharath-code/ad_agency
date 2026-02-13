@@ -132,7 +132,7 @@ const faqs = [
 	},
 	{
 		q: 'How long does a scan take?',
-		a: 'Most scans complete in under 2 minutes. Scheduled scans run automatically based on your plan.',
+		a: 'Most scans complete in under 2 minutes. Scheduled scans run automatically based on your plan.',
 	},
 	{
 		q: 'What changes do you recommend?',
@@ -141,6 +141,14 @@ const faqs = [
 	{
 		q: 'Can agencies use this for clients?',
 		a: 'Yes. The Scale plan supports multiple projects with client-ready reporting.',
+	},
+	{
+		q: 'Will AI-generated content hurt my SEO?',
+		a: 'No. Our recommendations focus on strategic messaging, positioning, and product clarity—not keyword stuffing. The fixes improve how AI assistants understand and recommend you, which aligns with what search engines reward: clear, helpful content.',
+	},
+	{
+		q: 'How is this different from using AI writing tools?',
+		a: 'AI writing tools help you create content. AVI tells you what to change so AI assistants actually recommend you. We identify the specific gaps causing you to be overlooked—not just what to say, but why competitors get picked over you.',
 	},
 ];
 
@@ -452,6 +460,14 @@ let openFaq = $state<number | null>(null);
                                     aria-hidden="true"
                                 />
                                 <span>Get a weekly fix plan that ships fast</span>
+                            </li>
+                            <li>
+                                <Check
+                                    size={20}
+                                    class="check-icon"
+                                    aria-hidden="true"
+                                />
+                                <span>Strategy-first: we tell you what matters, not just what to write</span>
                             </li>
                         </ul>
 

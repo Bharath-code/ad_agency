@@ -22,6 +22,7 @@ import {
 	LLM_CONFIG,
 	SYSTEM_PROMPT,
 } from './lib/prompts';
+import { calculateVisibilityScore } from './lib/utils';
 
 // Cache TTL for LLM responses (7 days) - infrastructure ready for future use
 const _CACHE_TTL_SECONDS = 7 * 24 * 60 * 60;
@@ -41,6 +42,135 @@ function deriveConfidence(
 		return 'medium';
 	}
 	return 'low';
+}
+
+function initializeProviders(): ProviderRouter {
+	const openaiKey = process.env.OPENAI_API_KEY;
+	const claudeKey = process.env.ANTHROPIC_API_KEY;
+
+	if (!openaiKey) {
+		throw new Error('OPENAI_API_KEY environment variable not set');
+	}
+
+	const providers = [createOpenAIProvider(openaiKey)];
+	if (claudeKey) {
+		providers.push(createClaudeProvider(claudeKey));
+	}
+
+	return new ProviderRouter(providers);
+}
+
+interface ScanQueryResult {
+	visibility: ConfidenceResult<BrandVisibilityResponse>;
+	competitorData: { competitorMentioned?: string; competitorReasons?: string[] };
+	fixes: { positioningFix?: string; contentSuggestion?: string; messagingFix?: string };
+}
+
+async function processSingleQuery(
+	router: ProviderRouter,
+	query: { _id: string; query: string },
+	project: { name: string; description: string },
+	competitorNames: string[],
+): Promise<ScanQueryResult | null> {
+	try {
+		const visibility = await analyzeWithConfidence(
+			router,
+			query.query,
+			project.name,
+			project.description,
+		);
+
+		let competitorData: { competitorMentioned?: string; competitorReasons?: string[] } = {};
+		let fixes: { positioningFix?: string; contentSuggestion?: string; messagingFix?: string } = {};
+
+		if (visibility.result.position === 'not_mentioned' && competitorNames.length > 0) {
+			const competitor = await analyzeCompetitorWithConfidence(
+				router,
+				query.query,
+				project.name,
+				competitorNames,
+			);
+
+			competitorData = {
+				competitorMentioned: competitor.result.winner,
+				competitorReasons: competitor.result.reasons,
+			};
+
+			const fixResult = await generateFixesWithConfidence(
+				router,
+				query.query,
+				project.name,
+				project.description,
+				competitor.result.winner,
+				competitor.result.reasons,
+			);
+
+			fixes = fixResult.result;
+		}
+
+		return { visibility, competitorData, fixes };
+	} catch (error) {
+		console.error(`Error processing query "${query.query}":`, error);
+		return null;
+	}
+}
+
+async function runScanCore(
+	ctx: import('./_generated/server').ActionCtx,
+	project: { _id: string; name: string; description: string },
+	competitorNames: string[],
+	queries: { _id: string; query: string }[],
+	scanIdPrefix: string,
+	isPaidUser: boolean,
+): Promise<{
+	scanId: string;
+	resultsCount: number;
+	primaryMentions: number;
+	secondaryMentions: number;
+}> {
+	const router = initializeProviders();
+	const scanId = `${scanIdPrefix}_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+
+	let resultsCount = 0;
+	let primaryMentions = 0;
+	let secondaryMentions = 0;
+
+	for (const query of queries) {
+		const result = await processSingleQuery(router, query, project, competitorNames);
+
+		if (!result) continue;
+
+		resultsCount++;
+		if (result.visibility.result.position === 'primary') primaryMentions++;
+		if (result.visibility.result.position === 'secondary') secondaryMentions++;
+
+		await ctx.runMutation(api.results.saveResult, {
+			projectId: project._id as any,
+			queryId: query._id as any,
+			scanId,
+			model: router.getPrimaryProviderName(),
+			mentioned: result.visibility.result.mentioned,
+			position: result.visibility.result.position,
+			context: result.visibility.result.context,
+			confidence: result.visibility.result.confidence,
+			rawResponse: JSON.stringify(result),
+			...result.competitorData,
+			...result.fixes,
+		});
+	}
+
+	const visibilityScore = calculateVisibilityScore({
+		primaryMentions,
+		secondaryMentions,
+		totalQueries: queries.length,
+	});
+
+	await ctx.runMutation(api.projects.updateVisibilityScore, {
+		projectId: project._id as any,
+		score: visibilityScore,
+	});
+
+	return { scanId, resultsCount, primaryMentions, secondaryMentions };
 }
 
 async function analyzeWithConfidence(
@@ -376,12 +506,18 @@ export const runScan = action({
 
 export const runScanForProject = internalAction({
 	args: { projectId: v.id('projects') },
-	handler: async (ctx, args): Promise<{ scanId: string; resultsCount: number }> => {
+	handler: async (ctx, args): Promise<{ scanId: string; resultsCount: number; error?: string }> => {
 		const project = await ctx.runQuery(internal.projects.getById, { projectId: args.projectId });
-		if (!project) throw new Error('Project not found');
+		if (!project) return { scanId: '', resultsCount: 0, error: 'Project not found' };
 
 		const user = await ctx.runQuery(internal.users.getById, { userId: project.userId });
-		if (!user) throw new Error('User not found');
+		if (!user) return { scanId: '', resultsCount: 0, error: 'User not found' };
+
+		// Verify user is on a paid plan for auto-scans
+		if (user.plan === 'free') {
+			console.log(`Skipping auto-scan for free user ${user.email}`);
+			return { scanId: '', resultsCount: 0 };
+		}
 
 		const plan = user.plan as keyof typeof PLAN_LIMITS;
 		const limit = PLAN_LIMITS[plan].scans;

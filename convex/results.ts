@@ -8,6 +8,7 @@ import {
 	query,
 } from './_generated/server';
 import { requireProjectOwner } from './lib/auth';
+import { calculateVisibilityScore } from './lib/utils';
 
 type ResultDoc = Doc<'results'>;
 type ProjectDoc = Doc<'projects'>;
@@ -85,9 +86,11 @@ async function buildDashboardSummary(
 	const secondaryMentions = latestResults.filter((r) => r.position === 'secondary').length;
 	const notMentioned = latestResults.filter((r) => r.position === 'not_mentioned').length;
 
-	const visibilityScore = Math.round(
-		((primaryMentions * 2 + secondaryMentions * 1) / (totalQueries * 2)) * 100,
-	);
+	const visibilityScore = calculateVisibilityScore({
+		primaryMentions,
+		secondaryMentions,
+		totalQueries,
+	});
 
 	const queries = await ctx.db
 		.query('intentQueries')
@@ -297,9 +300,11 @@ export const getHistoricalTrends = query({
 				const primaryMentions = scanResults.filter((r) => r.position === 'primary').length;
 				const secondaryMentions = scanResults.filter((r) => r.position === 'secondary').length;
 
-				const score = Math.round(
-					((primaryMentions * 2 + secondaryMentions * 1) / (totalQueries * 2)) * 100,
-				);
+				const score = calculateVisibilityScore({
+					primaryMentions,
+					secondaryMentions,
+					totalQueries,
+				});
 
 				const createdAt = Math.min(...scanResults.map((r) => r.createdAt));
 
