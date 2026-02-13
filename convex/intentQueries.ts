@@ -1,5 +1,5 @@
 import { v } from 'convex/values';
-import { query } from './_generated/server';
+import { internalQuery, query } from './_generated/server';
 import { requireProjectOwner } from './lib/auth';
 
 /**
@@ -24,6 +24,17 @@ export const listAll = query({
 		return ctx.db
 			.query('intentQueries')
 			.withIndex('by_project', (q) => q.eq('projectId', args.projectId))
+			.collect();
+	},
+});
+
+export const listActiveInternal = internalQuery({
+	args: { projectId: v.id('projects') },
+	handler: async (ctx, args) => {
+		return ctx.db
+			.query('intentQueries')
+			.withIndex('by_project', (q) => q.eq('projectId', args.projectId))
+			.filter((q) => q.eq(q.field('isActive'), true))
 			.collect();
 	},
 });

@@ -34,14 +34,14 @@ export const convex = new ConvexClient(convexUrl || 'https://placeholder.convex.
 let clerkInstance: unknown = null;
 
 /**
- * Initialize auth - for MVP, using a simple mock auth
- * Replace with actual Clerk integration when keys are configured
+ * Initialize auth
  */
 export async function initAuth(): Promise<void> {
 	const clerkPubKey = import.meta.env.PUBLIC_CLERK_PUBLISHABLE_KEY as string;
+	const bypassAuth = import.meta.env.VITE_BYPASS_AUTH === 'true';
 
-	if (!clerkPubKey || import.meta.env.VITE_BYPASS_AUTH === 'true') {
-		console.warn('Auth Sandbox Mode active or Clerk key missing - providing mock session');
+	if (bypassAuth) {
+		console.warn('Auth Sandbox Mode active - providing mock session');
 
 		// Provide mock user for testing
 		convexUser.set({
@@ -53,6 +53,16 @@ export async function initAuth(): Promise<void> {
 			createdAt: Date.now(),
 		});
 		isAuthenticated.set(true);
+		isLoading.set(false);
+		return;
+	}
+
+	if (!clerkPubKey) {
+		console.error(
+			'PUBLIC_CLERK_PUBLISHABLE_KEY is not set. Authentication is disabled until it is configured.',
+		);
+		convexUser.set(null);
+		isAuthenticated.set(false);
 		isLoading.set(false);
 		return;
 	}

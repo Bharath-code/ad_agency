@@ -2,7 +2,7 @@
 
 import { v } from 'convex/values';
 import { api, internal } from './_generated/api';
-import { action } from './_generated/server';
+import { action, internalAction, internalMutation } from './_generated/server';
 import { requireUserForAction } from './lib/auth';
 import { PLAN_LIMITS } from './lib/dodo';
 import { createClaudeProvider } from './lib/llm/claude';
@@ -22,6 +22,9 @@ import {
 	LLM_CONFIG,
 	SYSTEM_PROMPT,
 } from './lib/prompts';
+
+// Cache TTL for LLM responses (7 days) - infrastructure ready for future use
+const _CACHE_TTL_SECONDS = 7 * 24 * 60 * 60;
 
 function deriveConfidence(
 	totalRunsPlanned: number,
@@ -368,5 +371,178 @@ export const runScan = action({
 			modelUsed: router.getPrimaryProviderName(),
 			totalRuns,
 		};
+	},
+});
+
+export const runScanForProject = internalAction({
+	args: { projectId: v.id('projects') },
+	handler: async (ctx, args): Promise<{ scanId: string; resultsCount: number }> => {
+		const project = await ctx.runQuery(internal.projects.getById, { projectId: args.projectId });
+		if (!project) throw new Error('Project not found');
+
+		const user = await ctx.runQuery(internal.users.getById, { userId: project.userId });
+		if (!user) throw new Error('User not found');
+
+		const plan = user.plan as keyof typeof PLAN_LIMITS;
+		const limit = PLAN_LIMITS[plan].scans;
+
+		if (limit !== -1 && user.scansUsed >= limit) {
+			console.log(`User ${user.email} has reached scan limit (${limit}), skipping auto-scan`);
+			return { scanId: '', resultsCount: 0 };
+		}
+
+		const competitors = await ctx.runQuery(internal.competitors.listByProjectInternal, {
+			projectId: args.projectId,
+		});
+		const competitorNames = competitors.map((c: { name: string }) => c.name);
+
+		const queries = await ctx.runQuery(internal.intentQueries.listActiveInternal, {
+			projectId: args.projectId,
+		});
+
+		if (queries.length === 0) {
+			console.log(`No active queries for project ${args.projectId}, skipping scan`);
+			return { scanId: '', resultsCount: 0 };
+		}
+
+		const scanId = `auto_scan_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+
+		const openaiKey = process.env.OPENAI_API_KEY;
+		const claudeKey = process.env.ANTHROPIC_API_KEY;
+
+		if (!openaiKey) {
+			throw new Error('OPENAI_API_KEY environment variable not set');
+		}
+
+		const providers = [createOpenAIProvider(openaiKey)];
+		if (claudeKey) {
+			providers.push(createClaudeProvider(claudeKey));
+		}
+
+		const router = new ProviderRouter(providers);
+
+		let resultsCount = 0;
+		let primaryMentions = 0;
+		let secondaryMentions = 0;
+
+		for (const query of queries) {
+			try {
+				const visibility = await analyzeWithConfidence(
+					router,
+					query.query,
+					project.name,
+					project.description,
+				);
+
+				resultsCount++;
+
+				if (visibility.result.position === 'primary') primaryMentions++;
+				if (visibility.result.position === 'secondary') secondaryMentions++;
+
+				let competitorData: { competitorMentioned?: string; competitorReasons?: string[] } = {};
+				let fixes: { positioningFix?: string; contentSuggestion?: string; messagingFix?: string } =
+					{};
+
+				if (visibility.result.position === 'not_mentioned' && competitorNames.length > 0) {
+					const competitor = await analyzeCompetitorWithConfidence(
+						router,
+						query.query,
+						project.name,
+						competitorNames,
+					);
+
+					competitorData = {
+						competitorMentioned: competitor.result.winner,
+						competitorReasons: competitor.result.reasons,
+					};
+
+					const fixResult = await generateFixesWithConfidence(
+						router,
+						query.query,
+						project.name,
+						project.description,
+						competitor.result.winner,
+						competitor.result.reasons,
+					);
+
+					fixes = fixResult.result;
+				}
+
+				await ctx.runMutation(internal.results.saveResultInternal, {
+					projectId: args.projectId,
+					queryId: query._id,
+					scanId,
+					model: router.getPrimaryProviderName(),
+					mentioned: visibility.result.mentioned,
+					position: visibility.result.position,
+					context: visibility.result.context,
+					confidence: visibility.result.confidence,
+					rawResponse: JSON.stringify({ visibility, competitor: competitorData, fixes }),
+					...competitorData,
+					...fixes,
+				});
+			} catch (error) {
+				console.error(`Error processing query "${query.query}":`, error);
+			}
+		}
+
+		const totalQueries = queries.length;
+		const visibilityScore =
+			totalQueries > 0
+				? Math.round(((primaryMentions * 2 + secondaryMentions * 1) / (totalQueries * 2)) * 100)
+				: 0;
+
+		await ctx.runMutation(internal.projects.updateVisibilityScoreInternal, {
+			projectId: args.projectId,
+			score: visibilityScore,
+		});
+
+		await ctx.runMutation(internal.users.incrementScansUsed, { userId: user._id });
+
+		return { scanId, resultsCount };
+	},
+});
+
+export const resetScanCount = internalMutation({
+	args: { userId: v.id('users') },
+	handler: async (ctx, args) => {
+		await ctx.db.patch(args.userId, { scansUsed: 0 });
+	},
+});
+
+export const runAutoScansForPaidUsers = internalAction({
+	args: {},
+	handler: async (ctx) => {
+		const paidUsers = await ctx.runQuery(internal.users.listPaid);
+		console.log(`Running auto-scans for ${paidUsers.length} paid users`);
+
+		let totalScanned = 0;
+		let totalSkipped = 0;
+
+		for (const user of paidUsers) {
+			const projects = await ctx.runQuery(internal.projects.listByUserId, {
+				userId: user._id,
+			});
+
+			for (const project of projects) {
+				try {
+					const result = await ctx.runAction(internal.scans.runScanForProject, {
+						projectId: project._id,
+					});
+
+					if (result.scanId) {
+						totalScanned++;
+						console.log(`Scanned project ${project.name} for user ${user.email}`);
+					} else {
+						totalSkipped++;
+					}
+				} catch (error) {
+					console.error(`Failed to scan project ${project._id}:`, error);
+					totalSkipped++;
+				}
+			}
+		}
+
+		return { scanned: totalScanned, skipped: totalSkipped };
 	},
 });

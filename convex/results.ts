@@ -1,6 +1,12 @@
 import { v } from 'convex/values';
 import type { Doc, Id } from './_generated/dataModel';
-import { internalQuery, mutation, type QueryCtx, query } from './_generated/server';
+import {
+	internalMutation,
+	internalQuery,
+	mutation,
+	type QueryCtx,
+	query,
+} from './_generated/server';
 import { requireProjectOwner } from './lib/auth';
 
 type ResultDoc = Doc<'results'>;
@@ -363,6 +369,31 @@ export const saveResult = mutation({
 			throw new Error('Intent query does not belong to this project');
 		}
 
+		return ctx.db.insert('results', {
+			...args,
+			createdAt: Date.now(),
+		});
+	},
+});
+
+export const saveResultInternal = internalMutation({
+	args: {
+		projectId: v.id('projects'),
+		queryId: v.id('intentQueries'),
+		scanId: v.string(),
+		model: v.optional(v.string()),
+		mentioned: v.boolean(),
+		position: v.union(v.literal('primary'), v.literal('secondary'), v.literal('not_mentioned')),
+		context: v.string(),
+		confidence: v.union(v.literal('high'), v.literal('medium'), v.literal('low')),
+		rawResponse: v.optional(v.string()),
+		competitorMentioned: v.optional(v.string()),
+		competitorReasons: v.optional(v.array(v.string())),
+		positioningFix: v.optional(v.string()),
+		contentSuggestion: v.optional(v.string()),
+		messagingFix: v.optional(v.string()),
+	},
+	handler: async (ctx, args) => {
 		return ctx.db.insert('results', {
 			...args,
 			createdAt: Date.now(),

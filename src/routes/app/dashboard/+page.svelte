@@ -12,7 +12,7 @@ import VisibilityScore from '$lib/components/dashboard/VisibilityScore.svelte';
 import * as Button from '$lib/components/ui/button/index.js';
 import EmptyState from '$lib/components/ui/empty-state.svelte';
 import Spinner from '$lib/components/ui/spinner.svelte';
-import { convex, convexUser, isAuthenticated } from '$lib/stores/auth';
+import { convex, convexUser } from '$lib/stores/auth';
 
 type ProjectItem = {
 	_id: Id<'projects'>;
@@ -81,6 +81,7 @@ let dashboardData = $state<DashboardSummary | null>(null);
 let competitorData = $state<CompetitorComparison | null>(null);
 let transcriptData = $state<TranscriptResult[]>([]);
 let isScanning = $state(false);
+let dashboardError = $state<string | null>(null);
 
 onMount(() => {
 	// Subscribe to user and load data
@@ -132,84 +133,94 @@ async function loadDashboard(projectId: Id<'projects'>) {
 		dashboardData = summary;
 		competitorData = competitors;
 		transcriptData = transcripts;
+		dashboardError = null;
 	} catch (error) {
-		console.warn('Failed to load dashboard from Convex - using mock data for UI testing:', error);
+		if (import.meta.env.VITE_BYPASS_AUTH === 'true') {
+			console.warn('Failed to load dashboard from Convex - using mock data for UI testing:', error);
 
-		// Mock data fallback for UI testing
-		dashboardData = {
-			visibilityScore: 47,
-			totalQueries: 50,
-			primaryMentions: 12,
-			secondaryMentions: 11,
-			topWins: [
-				{
-					query: 'best ad agency tools',
-					context: 'Brand appears in top recommendation list.',
-					confidence: 'high',
-				},
-				{
-					query: 'ai visibility platform',
-					context: 'Brand appears as strong alternative.',
-					confidence: 'medium',
-				},
-			],
-			topMisses: [
-				{
-					query: 'competitor analysis ai',
-					competitorMentioned: 'AdTechPro',
-					reasons: ['More comparison-focused content', 'Stronger social proof'],
-				},
-			],
-			recommendedFixes: [
-				{
-					query: 'competitor analysis ai',
-					positioningFix: 'Clarify differentiation in first fold messaging.',
-					contentSuggestion: 'Ship a feature-comparison page with evidence.',
-					messagingFix: 'Use outcome-first proof points in copy.',
-				},
-				{
-					query: 'best ad agency tools',
-					positioningFix: 'Lead with unique signal quality approach.',
-					contentSuggestion: 'Add two measurable case studies.',
-					messagingFix: 'Tighten headline to value + audience.',
-				},
-			],
-			project: { lastScanAt: Date.now() },
-		};
-		competitorData = {
-			totalQueries: 50,
-			brand: {
+			// Mock data fallback for UI testing
+			dashboardData = {
+				visibilityScore: 47,
+				totalQueries: 50,
 				primaryMentions: 12,
 				secondaryMentions: 11,
-				notMentioned: 27,
-				winRate: 46,
-			},
-			competitors: [
-				{
-					name: 'AdTechPro',
-					wins: 20,
-					winRate: 40,
-					topReasons: ['Broader integrations', 'More enterprise references'],
-					queriesWon: ['competitor analysis ai', 'agency automation software'],
+				topWins: [
+					{
+						query: 'best ad agency tools',
+						context: 'Brand appears in top recommendation list.',
+						confidence: 'high',
+					},
+					{
+						query: 'ai visibility platform',
+						context: 'Brand appears as strong alternative.',
+						confidence: 'medium',
+					},
+				],
+				topMisses: [
+					{
+						query: 'competitor analysis ai',
+						competitorMentioned: 'AdTechPro',
+						reasons: ['More comparison-focused content', 'Stronger social proof'],
+					},
+				],
+				recommendedFixes: [
+					{
+						query: 'competitor analysis ai',
+						positioningFix: 'Clarify differentiation in first fold messaging.',
+						contentSuggestion: 'Ship a feature-comparison page with evidence.',
+						messagingFix: 'Use outcome-first proof points in copy.',
+					},
+					{
+						query: 'best ad agency tools',
+						positioningFix: 'Lead with unique signal quality approach.',
+						contentSuggestion: 'Add two measurable case studies.',
+						messagingFix: 'Tighten headline to value + audience.',
+					},
+				],
+				project: { lastScanAt: Date.now() },
+			};
+			competitorData = {
+				totalQueries: 50,
+				brand: {
+					primaryMentions: 12,
+					secondaryMentions: 11,
+					notMentioned: 27,
+					winRate: 46,
 				},
+				competitors: [
+					{
+						name: 'AdTechPro',
+						wins: 20,
+						winRate: 40,
+						topReasons: ['Broader integrations', 'More enterprise references'],
+						queriesWon: ['competitor analysis ai', 'agency automation software'],
+					},
+					{
+						name: 'VisibilityFlow',
+						wins: 7,
+						winRate: 14,
+						topReasons: ['Lower pricing signal'],
+						queriesWon: ['cheap visibility tools'],
+					},
+				],
+			};
+			transcriptData = [
 				{
-					name: 'VisibilityFlow',
-					wins: 7,
-					winRate: 14,
-					topReasons: ['Lower pricing signal'],
-					queriesWon: ['cheap visibility tools'],
+					queryText: 'What is AVI?',
+					position: 'secondary',
+					confidence: 'medium',
+					rawResponse: '{"summary":"AVI is a professional visibility tool."}',
+					createdAt: Date.now(),
 				},
-			],
-		};
-		transcriptData = [
-			{
-				queryText: 'What is AVI?',
-				position: 'secondary',
-				confidence: 'medium',
-				rawResponse: '{"summary":"AVI is a professional visibility tool."}',
-				createdAt: Date.now(),
-			},
-		];
+			];
+			dashboardError = null;
+		} else {
+			console.error('Failed to load dashboard from Convex:', error);
+			dashboardData = null;
+			competitorData = null;
+			transcriptData = [];
+			dashboardError = 'Unable to load dashboard data. Check backend connectivity and try again.';
+		}
 	}
 }
 
@@ -250,6 +261,19 @@ async function runScan() {
         <div class="loading-container">
             <Spinner size="lg" />
             <p>Loading your data...</p>
+        </div>
+    {:else if dashboardError}
+        <div class="empty-container">
+            <EmptyState
+                title="Dashboard unavailable"
+                description={dashboardError}
+                actionLabel="Retry"
+                onaction={() => {
+					if (projects.length > 0) {
+						void loadDashboard(projects[0]._id);
+					}
+				}}
+            />
         </div>
     {:else if projects.length === 0}
         <div class="empty-container">

@@ -1,7 +1,8 @@
 import { v } from 'convex/values';
-import { internalQuery, mutation, query } from './_generated/server';
+import { internalMutation, internalQuery, mutation, query } from './_generated/server';
 import { requireProjectOwner, requireUser } from './lib/auth';
 import { INTENT_QUERY_TEMPLATES } from './lib/constants';
+import type { PLAN_LIMITS } from './lib/dodo';
 
 /**
  * Project Queries
@@ -64,7 +65,43 @@ export const create = mutation({
 		),
 	},
 	handler: async (ctx, args) => {
+		// Input validation
+		if (args.name.length < 2 || args.name.length > 100) {
+			throw new Error('Project name must be between 2 and 100 characters');
+		}
+		if (args.description.length < 10 || args.description.length > 500) {
+			throw new Error('Description must be between 10 and 500 characters');
+		}
+		if (args.industry.length < 2 || args.industry.length > 50) {
+			throw new Error('Industry must be between 2 and 50 characters');
+		}
+		if (args.competitors.length > 10) {
+			throw new Error('Maximum 10 competitors allowed');
+		}
+		for (const comp of args.competitors) {
+			if (comp.name.length < 2 || comp.name.length > 100) {
+				throw new Error('Each competitor name must be between 2 and 100 characters');
+			}
+		}
+
 		const user = await requireUser(ctx);
+		const plan = user.plan as keyof typeof PLAN_LIMITS;
+
+		// Count existing projects
+		const existingProjects = await ctx.db
+			.query('projects')
+			.withIndex('by_user', (q) => q.eq('userId', user._id))
+			.collect();
+
+		const PROJECT_LIMITS = { free: 1, indie: 1, startup: 5 };
+		const projectLimit = PROJECT_LIMITS[plan];
+
+		if (existingProjects.length >= projectLimit) {
+			throw new Error(
+				`Project limit reached (${projectLimit}). Upgrade your plan to create more projects.`,
+			);
+		}
+
 		const primaryCompetitorName = args.competitors[0]?.name ?? 'market leaders';
 
 		// Create project
@@ -221,5 +258,18 @@ export const getById = internalQuery({
 	args: { projectId: v.id('projects') },
 	handler: async (ctx, args) => {
 		return ctx.db.get(args.projectId);
+	},
+});
+
+export const updateVisibilityScoreInternal = internalMutation({
+	args: {
+		projectId: v.id('projects'),
+		score: v.number(),
+	},
+	handler: async (ctx, args) => {
+		await ctx.db.patch(args.projectId, {
+			visibilityScore: args.score,
+			lastScanAt: Date.now(),
+		});
 	},
 });

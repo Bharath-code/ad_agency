@@ -1,55 +1,70 @@
 import type { AnalysisPrompt, AnalysisResult, LLMProvider } from './types';
 
+interface CircuitBreakerState {
+	failures: number;
+	lastFailureTime: number;
+	isOpen: boolean;
+}
+
+const CIRCUIT_FAILURE_THRESHOLD = 3;
+const CIRCUIT_RESET_TIMEOUT_MS = 60 * 1000; // 1 minute
+const RETRY_BASE_DELAY_MS = 1000;
+const RETRY_MAX_ATTEMPTS = 3;
+
 /**
- * Provider Router with automatic failover
+ * Circuit breaker for provider resilience
  */
-export class ProviderRouter {
-	private providers: LLMProvider[];
-	private primaryIndex = 0;
+class CircuitBreaker {
+	private states: Map<string, CircuitBreakerState> = new Map();
 
-	constructor(providers: LLMProvider[]) {
-		this.providers = providers;
+	recordFailure(providerName: string): void {
+		const state = this.getState(providerName);
+		state.failures++;
+		state.lastFailureTime = Date.now();
+		state.isOpen = state.failures >= CIRCUIT_FAILURE_THRESHOLD;
+		this.states.set(providerName, state);
 	}
 
-	async analyze(prompt: AnalysisPrompt): Promise<AnalysisResult> {
-		const errors: Error[] = [];
+	recordSuccess(providerName: string): void {
+		this.states.set(providerName, {
+			failures: 0,
+			lastFailureTime: 0,
+			isOpen: false,
+		});
+	}
 
-		for (let i = 0; i < this.providers.length; i++) {
-			const provider = this.providers[(this.primaryIndex + i) % this.providers.length];
+	isAvailable(providerName: string): boolean {
+		const state = this.states.get(providerName);
+		if (!state) return true;
+		if (!state.isOpen) return true;
 
-			try {
-				const isHealthy = await provider.isHealthy();
-				if (!isHealthy) {
-					console.warn(`Provider ${provider.name} is unhealthy, trying next...`);
-					continue;
-				}
-
-				return await provider.analyze(prompt);
-			} catch (error) {
-				console.error(`Provider ${provider.name} failed:`, error);
-				errors.push(error instanceof Error ? error : new Error(String(error)));
-			}
+		// Check if circuit should be half-open
+		if (Date.now() - state.lastFailureTime > CIRCUIT_RESET_TIMEOUT_MS) {
+			return true;
 		}
-
-		throw new Error(`All LLM providers failed. Errors: ${errors.map((e) => e.message).join('; ')}`);
+		return false;
 	}
 
-	getPrimaryProviderName(): string {
-		return this.providers[this.primaryIndex]?.name ?? 'unknown';
-	}
-
-	getAllProviders(): LLMProvider[] {
-		return this.providers;
+	private getState(providerName: string): CircuitBreakerState {
+		return (
+			this.states.get(providerName) ?? {
+				failures: 0,
+				lastFailureTime: 0,
+				isOpen: false,
+			}
+		);
 	}
 }
+
+const circuitBreaker = new CircuitBreaker();
 
 /**
  * Retry wrapper with exponential backoff
  */
-export async function withRetry<T>(
+async function withRetry<T>(
 	fn: () => Promise<T>,
-	maxRetries = 3,
-	baseDelayMs = 1000,
+	maxRetries = RETRY_MAX_ATTEMPTS,
+	baseDelayMs = RETRY_BASE_DELAY_MS,
 ): Promise<T> {
 	let lastError: Error | undefined;
 
@@ -70,9 +85,57 @@ export async function withRetry<T>(
 }
 
 /**
- * Create a cache key for LLM responses
+ * Provider Router with automatic failover, circuit breaker, and retry
  */
-export function createCacheKey(type: string, ...parts: string[]): string {
-	const normalizedParts = parts.map((p) => p.toLowerCase().replace(/\s+/g, ' ').trim());
-	return `llm_cache:${type}:${normalizedParts.join(':')}`;
+export class ProviderRouter {
+	private providers: LLMProvider[];
+	private primaryIndex = 0;
+
+	constructor(providers: LLMProvider[]) {
+		this.providers = providers;
+	}
+
+	async analyze(prompt: AnalysisPrompt): Promise<AnalysisResult> {
+		const errors: Error[] = [];
+
+		for (let i = 0; i < this.providers.length; i++) {
+			const provider = this.providers[(this.primaryIndex + i) % this.providers.length];
+
+			// Check circuit breaker
+			if (!circuitBreaker.isAvailable(provider.name)) {
+				console.warn(`Circuit open for provider ${provider.name}, skipping...`);
+				continue;
+			}
+
+			try {
+				const isHealthy = await provider.isHealthy();
+				if (!isHealthy) {
+					circuitBreaker.recordFailure(provider.name);
+					console.warn(`Provider ${provider.name} is unhealthy, trying next...`);
+					continue;
+				}
+
+				const result = await withRetry(async () => {
+					return await provider.analyze(prompt);
+				});
+
+				circuitBreaker.recordSuccess(provider.name);
+				return result;
+			} catch (error) {
+				console.error(`Provider ${provider.name} failed:`, error);
+				circuitBreaker.recordFailure(provider.name);
+				errors.push(error instanceof Error ? error : new Error(String(error)));
+			}
+		}
+
+		throw new Error(`All LLM providers failed. Errors: ${errors.map((e) => e.message).join('; ')}`);
+	}
+
+	getPrimaryProviderName(): string {
+		return this.providers[this.primaryIndex]?.name ?? 'unknown';
+	}
+
+	getAllProviders(): LLMProvider[] {
+		return this.providers;
+	}
 }

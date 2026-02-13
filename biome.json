@@ -33,6 +33,8 @@
 			"!**/node_modules",
 			"!**/.svelte-kit",
 			"!**/build",
+			"!**/playwright-report",
+			"!**/test-results",
 			"!skills",
 			"!**/convex/_generated",
 			"!**/*.config.js",
