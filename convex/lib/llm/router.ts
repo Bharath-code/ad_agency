@@ -135,6 +135,10 @@ export class ProviderRouter {
 		return this.providers[this.primaryIndex]?.name ?? 'unknown';
 	}
 
+	getProviderByName(name: string): LLMProvider | undefined {
+		return this.providers.find((p) => p.name === name);
+	}
+
 	getAllProviders(): LLMProvider[] {
 		return this.providers;
 	}

@@ -9,6 +9,7 @@
 	import TopMisses from "$lib/components/dashboard/TopMisses.svelte";
 	import TopWins from "$lib/components/dashboard/TopWins.svelte";
 	import VisibilityScore from "$lib/components/dashboard/VisibilityScore.svelte";
+	import ModelComparison from "$lib/components/dashboard/ModelComparison.svelte";
 	import * as Button from "$lib/components/ui/button/index.js";
 	import EmptyState from "$lib/components/ui/empty-state.svelte";
 	import Spinner from "$lib/components/ui/spinner.svelte";
@@ -76,6 +77,17 @@
 		createdAt: number;
 	};
 
+	type ModelComparisonData = Array<{
+		model: string;
+		scanId: string;
+		visibilityScore: number;
+		totalQueries: number;
+		primaryMentions: number;
+		secondaryMentions: number;
+		notMentioned: number;
+		lastScanAt: number;
+	}>;
+
 	// State
 	let isDataLoading = $state(true);
 	let projects = $state<ProjectItem[]>([]);
@@ -83,6 +95,8 @@
 	let dashboardData = $state<DashboardSummary | null>(null);
 	let competitorData = $state<CompetitorComparison | null>(null);
 	let transcriptData = $state<TranscriptResult[]>([]);
+	let modelComparisonData = $state<ModelComparisonData>([]);
+	let selectedModelToScan = $state<string>("openai");
 	let isScanning = $state(false);
 	let dashboardError = $state<string | null>(null);
 
@@ -139,19 +153,26 @@
 	async function loadDashboard(projectId: Id<"projects">) {
 		try {
 			// Load all data in parallel
-			const [summary, competitors, transcripts] = await Promise.all([
-				convex.query(api.results.getDashboardSummary, { projectId }),
-				convex.query(api.results.getCompetitorComparison, {
-					projectId,
-				}),
-				convex.query(api.results.getResultsWithTranscripts, {
-					projectId,
-				}),
-			]);
+			const [summary, competitors, transcripts, comparisons] =
+				await Promise.all([
+					convex.query(api.results.getDashboardSummary, {
+						projectId,
+					}),
+					convex.query(api.results.getCompetitorComparison, {
+						projectId,
+					}),
+					convex.query(api.results.getResultsWithTranscripts, {
+						projectId,
+					}),
+					convex.query(api.results.getModelComparison, {
+						projectId,
+					}),
+				]);
 
 			dashboardData = summary;
 			competitorData = competitors;
 			transcriptData = transcripts;
+			modelComparisonData = comparisons;
 			dashboardError = null;
 		} catch (error) {
 			if (import.meta.env.VITE_BYPASS_AUTH === "true") {
@@ -258,6 +279,7 @@
 				dashboardData = null;
 				competitorData = null;
 				transcriptData = [];
+				modelComparisonData = [];
 				dashboardError =
 					"Unable to load dashboard data. Check backend connectivity and try again.";
 			}
@@ -287,6 +309,7 @@
 		try {
 			const result = await convex.action(api.scans.runScan, {
 				projectId: selectedProjectId,
+				model: selectedModelToScan,
 			});
 			toasts.success(
 				`Scan completed! Analyzed ${result.resultsCount} queries.`,
@@ -478,13 +501,22 @@
 					totalQueries={dashboardData.totalQueries}
 				/>
 				<div class="scan-actions">
-					<button
-						class="btn-saas btn-saas-primary"
-						onclick={runScan}
-						disabled={isScanning}
-					>
-						{isScanning ? "Scanning..." : "Run New Scan"}
-					</button>
+					<div class="flex items-center gap-3">
+						<select
+							class="bg-white border border-slate-200 text-sm rounded-md px-3 py-2 text-slate-700 outline-none focus:ring-2 focus:ring-brand/20 cursor-pointer"
+							bind:value={selectedModelToScan}
+						>
+							<option value="openai">OpenAI</option>
+							<option value="claude">Claude</option>
+						</select>
+						<button
+							class="btn-saas btn-saas-primary"
+							onclick={runScan}
+							disabled={isScanning}
+						>
+							{isScanning ? "Scanning..." : "Run New Scan"}
+						</button>
+					</div>
 					<p class="scan-note">
 						{dashboardData.project?.lastScanAt
 							? `Last scan: ${new Date(dashboardData.project.lastScanAt).toLocaleDateString()}`
@@ -492,6 +524,13 @@
 					</p>
 				</div>
 			</div>
+
+			<!-- New: Model Comparison Section -->
+			{#if modelComparisonData && modelComparisonData.length > 0}
+				<div class="model-comparison-section">
+					<ModelComparison comparisons={modelComparisonData} />
+				</div>
+			{/if}
 
 			<!-- New: Competitor Battle Section -->
 			{#if competitorData}

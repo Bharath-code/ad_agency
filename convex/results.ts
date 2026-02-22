@@ -366,6 +366,61 @@ export const getResultsWithTranscripts = query({
 	},
 });
 
+export const getModelComparison = query({
+	args: { projectId: v.id('projects') },
+	handler: async (ctx, args) => {
+		await requireProjectOwner(ctx, args.projectId);
+
+		// Fetch a sufficient number of recent results to find various models
+		const recentResults = await ctx.db
+			.query('results')
+			.withIndex('by_project_createdAt', (q) => q.eq('projectId', args.projectId))
+			.order('desc')
+			.take(1000);
+
+		if (recentResults.length === 0) return [];
+
+		// Find the latest scanId for each model
+		const latestScanIdByModel = new Map<string, string>();
+
+		for (const result of recentResults) {
+			const model = result.model || 'unknown';
+			if (!latestScanIdByModel.has(model)) {
+				latestScanIdByModel.set(model, result.scanId);
+			}
+		}
+
+		const comparison = [];
+
+		for (const [model, scanId] of latestScanIdByModel.entries()) {
+			const scanResults = recentResults.filter((r) => r.scanId === scanId);
+			const totalQueries = scanResults.length;
+			const primaryMentions = scanResults.filter((r) => r.position === 'primary').length;
+			const secondaryMentions = scanResults.filter((r) => r.position === 'secondary').length;
+			const notMentioned = scanResults.filter((r) => r.position === 'not_mentioned').length;
+
+			const visibilityScore = calculateVisibilityScore({
+				primaryMentions,
+				secondaryMentions,
+				totalQueries,
+			});
+
+			comparison.push({
+				model,
+				scanId,
+				visibilityScore,
+				totalQueries,
+				primaryMentions,
+				secondaryMentions,
+				notMentioned,
+				lastScanAt: scanResults[0].createdAt
+			});
+		}
+
+		return comparison.sort((a, b) => b.lastScanAt - a.lastScanAt);
+	}
+});
+
 /**
  * Results Mutations — shared args and insert logic
  */

@@ -12,6 +12,7 @@ import {
 	type BrandVisibilityResponse,
 	type CompetitorAdvantageResponse,
 	type ConfidenceResult,
+	type LLMProvider,
 	type PositioningFixResponse,
 	parseJSONResponse,
 } from './lib/llm/types';
@@ -178,18 +179,22 @@ async function analyzeWithConfidence(
 	queryText: string,
 	productName: string,
 	productDescription: string,
+	forcedProvider?: LLMProvider,
 ): Promise<ConfidenceResult<BrandVisibilityResponse>> {
 	const runConfigs = [{ temperature: 0.2 }, { temperature: 0.3 }, { temperature: 0.4 }];
 
 	const runs = await Promise.all(
 		runConfigs.map(async (config) => {
 			try {
-				const result = await router.analyze({
+				const analyzeArgs = {
 					systemPrompt: SYSTEM_PROMPT,
 					userPrompt: getBrandVisibilityPrompt(queryText, productName, productDescription),
 					temperature: config.temperature,
 					maxTokens: LLM_CONFIG.maxTokens,
-				});
+				};
+				const result = forcedProvider
+					? await forcedProvider.analyze(analyzeArgs)
+					: await router.analyze(analyzeArgs);
 				return parseJSONResponse<BrandVisibilityResponse>(result.content);
 			} catch {
 				return null;
@@ -232,18 +237,22 @@ async function analyzeCompetitorWithConfidence(
 	queryText: string,
 	productName: string,
 	competitors: string[],
+	forcedProvider?: LLMProvider,
 ): Promise<ConfidenceResult<CompetitorAdvantageResponse>> {
 	const runConfigs = [{ temperature: 0.2 }, { temperature: 0.3 }, { temperature: 0.4 }];
 
 	const runs = await Promise.all(
 		runConfigs.map(async (config) => {
 			try {
-				const result = await router.analyze({
+				const analyzeArgs = {
 					systemPrompt: SYSTEM_PROMPT,
 					userPrompt: getCompetitorAdvantagePrompt(queryText, productName, competitors),
 					temperature: config.temperature,
 					maxTokens: LLM_CONFIG.maxTokens,
-				});
+				};
+				const result = forcedProvider
+					? await forcedProvider.analyze(analyzeArgs)
+					: await router.analyze(analyzeArgs);
 				return parseJSONResponse<CompetitorAdvantageResponse>(result.content);
 			} catch {
 				return null;
@@ -302,13 +311,14 @@ async function generateFixesWithConfidence(
 	productDescription: string,
 	competitorWinner: string,
 	competitorReasons: string[],
+	forcedProvider?: LLMProvider,
 ): Promise<ConfidenceResult<PositioningFixResponse>> {
 	const runConfigs = [{ temperature: 0.2 }, { temperature: 0.3 }, { temperature: 0.4 }];
 
 	const runs = await Promise.all(
 		runConfigs.map(async (config) => {
 			try {
-				const result = await router.analyze({
+				const analyzeArgs = {
 					systemPrompt: SYSTEM_PROMPT,
 					userPrompt: getPositioningFixPrompt(
 						queryText,
@@ -319,7 +329,10 @@ async function generateFixesWithConfidence(
 					),
 					temperature: config.temperature,
 					maxTokens: LLM_CONFIG.maxTokens,
-				});
+				};
+				const result = forcedProvider
+					? await forcedProvider.analyze(analyzeArgs)
+					: await router.analyze(analyzeArgs);
 				return parseJSONResponse<PositioningFixResponse>(result.content);
 			} catch {
 				return null;
@@ -376,7 +389,7 @@ async function generateFixesWithConfidence(
 }
 
 export const runScan = action({
-	args: { projectId: v.id('projects') },
+	args: { projectId: v.id('projects'), model: v.optional(v.string()) },
 	handler: async (
 		ctx,
 		args,
@@ -431,6 +444,8 @@ export const runScan = action({
 		let secondaryMentions = 0;
 		let totalRuns = 0;
 
+		const forcedProvider = args.model ? router.getProviderByName(args.model) : undefined;
+
 		for (const query of queries) {
 			try {
 				const visibility = await analyzeWithConfidence(
@@ -438,6 +453,7 @@ export const runScan = action({
 					query.query,
 					project.name,
 					project.description,
+					forcedProvider
 				);
 
 				totalRuns += visibility.runs;
@@ -456,6 +472,7 @@ export const runScan = action({
 						query.query,
 						project.name,
 						competitorNames,
+						forcedProvider
 					);
 
 					competitorData = {
@@ -470,6 +487,7 @@ export const runScan = action({
 						project.description,
 						competitor.result.winner,
 						competitor.result.reasons,
+						forcedProvider
 					);
 
 					fixes = fixResult.result;
