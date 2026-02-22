@@ -5,6 +5,18 @@
  * Low temperature (0.3) for deterministic outputs.
  */
 
+/**
+ * Sanitize user-supplied input before injecting into prompts.
+ * Prevents prompt injection and excessive token usage.
+ */
+export function sanitizePromptInput(input: string, maxLength = 200): string {
+	return input
+		.replace(/[\x00-\x1F\x7F]/g, '') // strip control characters
+		.replace(/["""''`]/g, "'") // normalize quotes
+		.trim()
+		.slice(0, maxLength);
+}
+
 export const SYSTEM_PROMPT = `You are an AI assistant analyzing how AI assistants (like yourself) respond to user queries about software products.
 
 Your task is to objectively analyze whether a specific product would be mentioned in response to a given query, and why.
@@ -23,9 +35,13 @@ export function getBrandVisibilityPrompt(
 	productName: string,
 	productDescription: string,
 ): string {
-	return `Given this user query: "${query}"
+	const q = sanitizePromptInput(query);
+	const name = sanitizePromptInput(productName, 100);
+	const desc = sanitizePromptInput(productDescription, 500);
 
-Would you mention or recommend "${productName}" (${productDescription})?
+	return `Given this user query: "${q}"
+
+Would you mention or recommend "${name}" (${desc})?
 
 Respond in this exact JSON format:
 {
@@ -51,9 +67,13 @@ export function getCompetitorAdvantagePrompt(
 	productName: string,
 	competitors: string[],
 ): string {
-	return `For this user query: "${query}"
+	const q = sanitizePromptInput(query);
+	const name = sanitizePromptInput(productName, 100);
+	const safeCompetitors = competitors.map((c) => sanitizePromptInput(c, 100));
 
-You did NOT recommend "${productName}". Instead, you would recommend one of these competitors: ${competitors.join(', ')}.
+	return `For this user query: "${q}"
+
+You did NOT recommend "${name}". Instead, you would recommend one of these competitors: ${safeCompetitors.join(', ')}.
 
 Explain why:
 
@@ -81,11 +101,17 @@ export function getPositioningFixPrompt(
 	competitorWinner: string,
 	competitorReasons: string[],
 ): string {
-	return `For the query: "${query}"
+	const q = sanitizePromptInput(query);
+	const name = sanitizePromptInput(productName, 100);
+	const desc = sanitizePromptInput(productDescription, 500);
+	const winner = sanitizePromptInput(competitorWinner, 100);
+	const safeReasons = competitorReasons.map((r) => sanitizePromptInput(r));
 
-${productName} (${productDescription}) is NOT being recommended.
-Instead, "${competitorWinner}" is preferred because:
-${competitorReasons.map((r, i) => `${i + 1}. ${r}`).join('\n')}
+	return `For the query: "${q}"
+
+${name} (${desc}) is NOT being recommended.
+Instead, "${winner}" is preferred because:
+${safeReasons.map((r, i) => `${i + 1}. ${r}`).join('\n')}
 
 Suggest ONE concrete fix in each category:
 
@@ -107,3 +133,4 @@ export const LLM_CONFIG = {
 	maxTokens: 500,
 	model: 'gpt-4o-mini', // Default model
 } as const;
+

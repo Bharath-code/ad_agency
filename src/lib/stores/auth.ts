@@ -38,7 +38,17 @@ let clerkInstance: unknown = null;
  */
 export async function initAuth(): Promise<void> {
 	const clerkPubKey = import.meta.env.PUBLIC_CLERK_PUBLISHABLE_KEY as string;
-	const bypassAuth = import.meta.env.VITE_BYPASS_AUTH === 'true';
+	let bypassAuth = import.meta.env.VITE_BYPASS_AUTH === 'true';
+
+	// Safety guard: NEVER allow auth bypass in production
+	if (bypassAuth && typeof window !== 'undefined') {
+		const isProduction =
+			window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+		if (isProduction) {
+			console.error('CRITICAL: VITE_BYPASS_AUTH is true in production. Forcing it off.');
+			bypassAuth = false;
+		}
+	}
 
 	if (bypassAuth) {
 		console.warn('Auth Sandbox Mode active - providing mock session');

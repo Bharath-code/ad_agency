@@ -5,6 +5,7 @@ import {
 	internalQuery,
 	mutation,
 	type QueryCtx,
+	type MutationCtx,
 	query,
 } from './_generated/server';
 import { requireProjectOwner } from './lib/auth';
@@ -164,6 +165,20 @@ export const getLatestByProject = query({
 	},
 });
 
+export const getRecentCount = query({
+	args: { projectId: v.id('projects'), since: v.number() },
+	handler: async (ctx, args) => {
+		await requireProjectOwner(ctx, args.projectId);
+		const results = await ctx.db
+			.query('results')
+			.withIndex('by_project_createdAt', (q) =>
+				q.eq('projectId', args.projectId).gte('createdAt', args.since),
+			)
+			.collect();
+		return results.length;
+	},
+});
+
 export const getDashboardSummary = query({
 	args: { projectId: v.id('projects') },
 	handler: async (ctx, args) => {
@@ -262,7 +277,7 @@ export const getCompetitorComparison = query({
 				...brandStats,
 				winRate: Math.round(
 					((brandStats.primaryMentions + brandStats.secondaryMentions) / latestResults.length) *
-						100,
+					100,
 				),
 			},
 			competitors,
@@ -273,16 +288,19 @@ export const getCompetitorComparison = query({
 /**
  * Historical Trends
  * Track visibility over time - data moat feature
+ * Limited to last ~100 scans (3000 results) to prevent memory blowup
  */
 export const getHistoricalTrends = query({
 	args: { projectId: v.id('projects') },
 	handler: async (ctx, args) => {
 		await requireProjectOwner(ctx, args.projectId);
 
+		// Fetch last 3000 results (roughly ~100 scans × 30 queries)
 		const results = await ctx.db
 			.query('results')
-			.withIndex('by_project', (q) => q.eq('projectId', args.projectId))
-			.collect();
+			.withIndex('by_project_createdAt', (q) => q.eq('projectId', args.projectId))
+			.order('desc')
+			.take(3000);
 
 		if (results.length === 0) return [];
 
@@ -319,7 +337,8 @@ export const getHistoricalTrends = query({
 					notMentioned: totalQueries - primaryMentions - secondaryMentions,
 				};
 			})
-			.sort((a, b) => a.timestamp - b.timestamp);
+			.sort((a, b) => a.timestamp - b.timestamp)
+			.slice(-50); // Return at most 50 data points
 	},
 });
 
@@ -348,60 +367,48 @@ export const getResultsWithTranscripts = query({
 });
 
 /**
- * Results Mutations
+ * Results Mutations — shared args and insert logic
  */
+const resultArgs = {
+	projectId: v.id('projects'),
+	queryId: v.id('intentQueries'),
+	scanId: v.string(),
+	model: v.optional(v.string()),
+	mentioned: v.boolean(),
+	position: v.union(v.literal('primary'), v.literal('secondary'), v.literal('not_mentioned')),
+	context: v.string(),
+	confidence: v.union(v.literal('high'), v.literal('medium'), v.literal('low')),
+	rawResponse: v.optional(v.string()),
+	competitorMentioned: v.optional(v.string()),
+	competitorReasons: v.optional(v.array(v.string())),
+	positioningFix: v.optional(v.string()),
+	contentSuggestion: v.optional(v.string()),
+	messagingFix: v.optional(v.string()),
+} as const;
+
+async function insertResult(ctx: { db: MutationCtx['db'] }, args: Record<string, unknown>) {
+	return ctx.db.insert('results', {
+		...args,
+		createdAt: Date.now(),
+	} as any);
+}
+
 export const saveResult = mutation({
-	args: {
-		projectId: v.id('projects'),
-		queryId: v.id('intentQueries'),
-		scanId: v.string(),
-		model: v.optional(v.string()),
-		mentioned: v.boolean(),
-		position: v.union(v.literal('primary'), v.literal('secondary'), v.literal('not_mentioned')),
-		context: v.string(),
-		confidence: v.union(v.literal('high'), v.literal('medium'), v.literal('low')),
-		rawResponse: v.optional(v.string()),
-		competitorMentioned: v.optional(v.string()),
-		competitorReasons: v.optional(v.array(v.string())),
-		positioningFix: v.optional(v.string()),
-		contentSuggestion: v.optional(v.string()),
-		messagingFix: v.optional(v.string()),
-	},
+	args: resultArgs,
 	handler: async (ctx, args) => {
 		await requireProjectOwner(ctx, args.projectId);
 		const query = await ctx.db.get(args.queryId);
 		if (!query || query.projectId !== args.projectId) {
 			throw new Error('Intent query does not belong to this project');
 		}
-
-		return ctx.db.insert('results', {
-			...args,
-			createdAt: Date.now(),
-		});
+		return insertResult(ctx, args);
 	},
 });
 
 export const saveResultInternal = internalMutation({
-	args: {
-		projectId: v.id('projects'),
-		queryId: v.id('intentQueries'),
-		scanId: v.string(),
-		model: v.optional(v.string()),
-		mentioned: v.boolean(),
-		position: v.union(v.literal('primary'), v.literal('secondary'), v.literal('not_mentioned')),
-		context: v.string(),
-		confidence: v.union(v.literal('high'), v.literal('medium'), v.literal('low')),
-		rawResponse: v.optional(v.string()),
-		competitorMentioned: v.optional(v.string()),
-		competitorReasons: v.optional(v.array(v.string())),
-		positioningFix: v.optional(v.string()),
-		contentSuggestion: v.optional(v.string()),
-		messagingFix: v.optional(v.string()),
-	},
+	args: resultArgs,
 	handler: async (ctx, args) => {
-		return ctx.db.insert('results', {
-			...args,
-			createdAt: Date.now(),
-		});
+		return insertResult(ctx, args);
 	},
 });
+

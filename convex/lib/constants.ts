@@ -60,7 +60,7 @@ export const INTENT_QUERY_TEMPLATES: IntentQuery[] = [
 ];
 
 /**
- * Pricing tiers
+ * Pricing tiers — display values aligned with PLAN_LIMITS in dodo.ts
  */
 export const PRICING_TIERS = {
 	free: {
@@ -68,23 +68,30 @@ export const PRICING_TIERS = {
 		price: 0,
 		maxScans: 5,
 		maxProjects: 1,
-		features: ['5 scans total', '1 project', 'No history'],
+		maxCompetitors: 2,
+		maxQueries: 10,
+		features: ['5 scans total', '1 project', '2 competitors', 'Basic visibility data'],
 	},
 	indie: {
 		name: 'Indie',
 		price: 49,
 		maxScans: -1, // unlimited
 		maxProjects: 1,
-		features: ['Unlimited scans', '1 project', 'Full history', 'Weekly reports'],
+		maxCompetitors: 3,
+		maxQueries: 30,
+		features: ['Unlimited scans', '1 project', '3 competitors', 'Full history', 'Weekly reports'],
 	},
 	startup: {
 		name: 'Startup',
 		price: 149,
 		maxScans: -1, // unlimited
 		maxProjects: 5,
+		maxCompetitors: 10,
+		maxQueries: 100,
 		features: [
 			'Unlimited scans',
 			'5 projects',
+			'10 competitors',
 			'Full history',
 			'Weekly reports',
 			'Priority support',
@@ -93,3 +100,4 @@ export const PRICING_TIERS = {
 } as const;
 
 export type PlanType = keyof typeof PRICING_TIERS;
+

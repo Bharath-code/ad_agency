@@ -143,10 +143,51 @@ export async function verifyWebhookSignature(
 }
 
 /**
- * Parse webhook event
+ * Parse and validate webhook event
  */
 export function parseWebhookEvent(payload: string): WebhookEvent {
-	return JSON.parse(payload);
+	const parsed = JSON.parse(payload);
+
+	if (!parsed || typeof parsed !== 'object') {
+		throw new Error('Invalid webhook payload: not an object');
+	}
+	if (!parsed.type || typeof parsed.type !== 'string') {
+		throw new Error('Invalid webhook payload: missing or invalid type');
+	}
+	if (!parsed.data || typeof parsed.data !== 'object') {
+		throw new Error('Invalid webhook payload: missing or invalid data');
+	}
+
+	return parsed as WebhookEvent;
+}
+
+/**
+ * Cancel a subscription via DodoPayments API
+ */
+export async function cancelDodoSubscription(subscriptionId: string): Promise<void> {
+	if (!DODO_API_KEY) {
+		throw new Error('DODO_API_KEY not configured');
+	}
+
+	if (!subscriptionId) {
+		throw new Error('Subscription ID is required for cancellation');
+	}
+
+	const response = await fetch(
+		`https://api.dodopayments.com/subscriptions/${subscriptionId}/cancel`,
+		{
+			method: 'POST',
+			headers: {
+				Authorization: `Bearer ${DODO_API_KEY}`,
+				'Content-Type': 'application/json',
+			},
+		},
+	);
+
+	if (!response.ok) {
+		const error = await response.text();
+		throw new Error(`DodoPayments cancellation error: ${error}`);
+	}
 }
 
 /**
@@ -158,10 +199,10 @@ export const PRODUCT_IDS = {
 } as const;
 
 /**
- * Plan limits
+ * Plan limits — single source of truth for all plan constraints
  */
 export const PLAN_LIMITS = {
-	free: { scans: 5, competitors: 2, queries: 10 },
-	indie: { scans: 100, competitors: 3, queries: 30 },
-	startup: { scans: -1, competitors: 10, queries: 100 }, // -1 = unlimited
+	free: { scans: 5, projects: 1, competitors: 2, queries: 10 },
+	indie: { scans: -1, projects: 1, competitors: 3, queries: 30 }, // -1 = unlimited
+	startup: { scans: -1, projects: 5, competitors: 10, queries: 100 },
 } as const;

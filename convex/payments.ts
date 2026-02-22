@@ -1,7 +1,12 @@
 import { v } from 'convex/values';
 import { internal } from './_generated/api';
-import { action, internalMutation, query } from './_generated/server';
-import { createCheckoutSession, PLAN_LIMITS, PRODUCT_IDS } from './lib/dodo';
+import { action, internalMutation, internalQuery, query } from './_generated/server';
+import {
+	cancelDodoSubscription,
+	createCheckoutSession,
+	PLAN_LIMITS,
+	PRODUCT_IDS,
+} from './lib/dodo';
 
 /**
  * Create checkout session for subscription upgrade
@@ -49,6 +54,7 @@ export const createCheckout = action({
  */
 export const handleWebhook = internalMutation({
 	args: {
+		eventId: v.optional(v.string()),
 		eventType: v.string(),
 		subscriptionId: v.optional(v.string()),
 		customerEmail: v.optional(v.string()),
@@ -123,6 +129,15 @@ export const handleWebhook = internalMutation({
 				break;
 			}
 		}
+
+		// Record event for idempotency
+		if (args.eventId) {
+			await ctx.db.insert('webhookEvents', {
+				eventId: args.eventId,
+				eventType: args.eventType,
+				processedAt: Date.now(),
+			});
+		}
 	},
 });
 
@@ -163,7 +178,7 @@ export const getSubscription = query({
 });
 
 /**
- * Cancel subscription
+ * Cancel subscription — calls DodoPayments API then updates local state
  */
 export const cancelSubscription = action({
 	args: {},
@@ -174,13 +189,56 @@ export const cancelSubscription = action({
 			throw new Error('Not authenticated');
 		}
 
-		// In production, call DodoPayments API to cancel
-		// For now, just mark as canceled in our database
+		// Get user and their subscription
+		const user = await ctx.runQuery(internal.users.getByEmail, { email });
+		if (!user) {
+			throw new Error('User not found');
+		}
+
+		const subscriptionData = await ctx.runQuery(internal.payments.getSubscriptionByUserId, {
+			userId: user._id,
+		});
+
+		if (!subscriptionData || !subscriptionData.dodoSubscriptionId) {
+			throw new Error('No active subscription found');
+		}
+
+		// Call DodoPayments API to actually stop billing
+		await cancelDodoSubscription(subscriptionData.dodoSubscriptionId);
+
+		// Update local state after successful API call
 		await ctx.runMutation(internal.payments.handleWebhook, {
 			eventType: 'subscription.cancelled',
 			customerEmail: email,
 		});
 
 		return { success: true };
+	},
+});
+
+/**
+ * Internal query to get subscription by user ID (used by cancelSubscription)
+ */
+export const getSubscriptionByUserId = internalQuery({
+	args: { userId: v.id('users') },
+	handler: async (ctx, args) => {
+		return ctx.db
+			.query('subscriptions')
+			.withIndex('by_user', (q) => q.eq('userId', args.userId))
+			.first();
+	},
+});
+
+/**
+ * Check if a webhook event has already been processed (idempotency)
+ */
+export const isWebhookProcessed = internalQuery({
+	args: { eventId: v.string() },
+	handler: async (ctx, args) => {
+		const existing = await ctx.db
+			.query('webhookEvents')
+			.withIndex('by_eventId', (q) => q.eq('eventId', args.eventId))
+			.first();
+		return !!existing;
 	},
 });

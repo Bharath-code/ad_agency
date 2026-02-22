@@ -392,6 +392,17 @@ export const runScan = action({
 		const project = await ctx.runQuery(api.projects.get, { projectId: args.projectId });
 		if (!project) throw new Error('Project not found');
 
+		// Rate limiting: minimum 60 seconds between scans per project
+		const SCAN_COOLDOWN_MS = 60 * 1000;
+		if (project.lastScanAt && Date.now() - project.lastScanAt < SCAN_COOLDOWN_MS) {
+			const remainingSec = Math.ceil(
+				(SCAN_COOLDOWN_MS - (Date.now() - project.lastScanAt)) / 1000,
+			);
+			throw new Error(
+				`Please wait ${remainingSec} seconds before scanning again. This prevents excessive API usage.`,
+			);
+		}
+
 		const competitors = await ctx.runQuery(api.competitors.listByProject, {
 			projectId: args.projectId,
 		});
@@ -639,12 +650,6 @@ export const runScanForProject = internalAction({
 	},
 });
 
-export const resetScanCount = internalMutation({
-	args: { userId: v.id('users') },
-	handler: async (ctx, args) => {
-		await ctx.db.patch(args.userId, { scansUsed: 0 });
-	},
-});
 
 export const runAutoScansForPaidUsers = internalAction({
 	args: {},

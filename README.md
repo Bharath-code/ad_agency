@@ -1,42 +1,74 @@
-# sv
+# RivalEye
 
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
+RivalEye is an AI Visibility Intelligence platform that helps SaaS and B2B companies track, analyze, and optimize how often Large Language Models (LLMs) like ChatGPT, Claude, and Perplexity recommend their product over competitors.
 
-## Creating a project
+## Features
 
-If you're seeing this, you've probably already done this step. Congrats!
+- **Visibility Score:** Track your aggregate brand presence across dozens of high-value buyer intent queries.
+- **Head-to-Head Competitor Analysis:** See exactly *why* an AI is recommending a competitor instead of you.
+- **Actionable Fixes:** Get concrete AI-generated recommendations for positioning, content, and messaging tweaks to win back recommendations.
+- **Scan Transcripts & CSV Export:** Drill down into raw LLM responses and export the data for deeper analysis.
+- **Historical Trends:** Track your visibility score progress over time.
+- **Automated Scanning:** Background cron jobs power recurring AI product sentiment analysis.
 
-```sh
-# create a new project
-npx sv create my-app
+## Tech Stack
+
+- **Framework:** [SvelteKit](https://svelte.dev/)
+- **Backend & Database:** [Convex](https://convex.dev/) (Real-time edge database and serverless functions)
+- **Authentication:** Convex Auth with GitHub OAuth
+- **LLM Integration:** OpenAI & Anthropic (via custom routing layer in Convex actions)
+- **Payments:** [Dodo Payments](https://dodopayments.com/)
+- **Styling:** TailwindCSS + Custom UI components powered by Lucide Svelte
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js 18+
+- [Convex Account](https://convex.dev/)
+
+### Installation
+
+1. Install dependencies:
+   ```bash
+   pnpm install
+   ```
+
+2. Initialize Convex (this will spin up your backend and start syncing your schemas/functions):
+   ```bash
+   npx convex dev
+   ```
+
+3. Start the SvelteKit development server in a new terminal:
+   ```bash
+   pnpm run dev
+   ```
+
+## Environment Variables
+
+Copy your `.env.local.example` to `.env.local` and populate the required keys to ensure everything runs correctly:
+
+```env
+# Convex
+CONVEX_DEPLOYMENT=...
+NEXT_PUBLIC_CONVEX_URL=...
+
+# Auth (GitHub)
+AUTH_GITHUB_ID=...
+AUTH_GITHUB_SECRET=...
+
+# AI Models
+OPENAI_API_KEY=...
+ANTHROPIC_API_KEY=...
+
+# Dodo Payments
+DODO_PAYMENTS_API_KEY=...
+DODO_WEBHOOK_SECRET=...
 ```
 
-To recreate this project with the same configuration:
+## Running Tests
 
-```sh
-# recreate this project
-pnpm dlx sv create --template minimal --types ts --install pnpm .
+We use Vitest to run our core utility and LLM testing functions. 
+```bash
+pnpm test
 ```
-
-## Developing
-
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
-
-```sh
-npm run dev
-
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
-```
-
-## Building
-
-To create a production version of your app:
-
-```sh
-npm run build
-```
-
-You can preview the production build with `npm run preview`.
-
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.

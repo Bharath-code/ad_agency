@@ -2,6 +2,7 @@ import { httpRouter } from 'convex/server';
 import { internal } from './_generated/api';
 import { httpAction } from './_generated/server';
 import { parseWebhookEvent, verifyWebhookSignature } from './lib/dodo';
+import type { WebhookEvent } from './lib/dodo';
 
 const http = httpRouter();
 
@@ -28,7 +29,7 @@ http.route({
 			return new Response('Invalid signature', { status: 401 });
 		}
 
-		let event: ReturnType<typeof parseWebhookEvent>;
+		let event: WebhookEvent;
 		try {
 			event = parseWebhookEvent(bodyText);
 		} catch {
@@ -44,7 +45,22 @@ http.route({
 			return new Response('Missing email', { status: 400 });
 		}
 
+		// Generate idempotency key from event data
+		const eventId =
+			data?.subscription_id && eventType
+				? `${eventType}:${data.subscription_id}:${data?.status ?? ''}`
+				: `${eventType}:${customerEmail}:${Date.now()}`;
+
+		// Check if already processed (idempotency)
+		const alreadyProcessed = await ctx.runQuery(internal.payments.isWebhookProcessed, {
+			eventId,
+		});
+		if (alreadyProcessed) {
+			return new Response('Already processed', { status: 200 });
+		}
+
 		await ctx.runMutation(internal.payments.handleWebhook, {
+			eventId,
 			eventType: eventType || 'unknown',
 			subscriptionId: data?.subscription_id,
 			customerEmail: customerEmail,

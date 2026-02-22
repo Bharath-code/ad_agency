@@ -107,4 +107,11 @@ export default defineSchema({
 		createdAt: v.number(),
 		ttlSeconds: v.number(),
 	}).index('by_key', ['cacheKey']),
+
+	// Webhook Events (idempotency tracking)
+	webhookEvents: defineTable({
+		eventId: v.string(), // Unique event identifier from payment provider
+		eventType: v.string(),
+		processedAt: v.number(),
+	}).index('by_eventId', ['eventId']),
 });

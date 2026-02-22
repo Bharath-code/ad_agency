@@ -212,26 +212,15 @@ export const remove = mutation({
 	},
 });
 
+/**
+ * Update visibility score (authenticated, verifies ownership)
+ */
 export const updateVisibilityScore = mutation({
 	args: {
 		projectId: v.id('projects'),
 		score: v.number(),
 	},
 	handler: async (ctx, args) => {
-		// Internal or authorized call? This is called by runScan which validates ownership
-		// But for safety, we should validte here too if called directly
-		// However, runScan calls it internally.
-		// Wait, action calls mutation. The mutation contexts don't share verification automatically unless passed.
-		// But the action verifies.
-		// Ideally we verify here too.
-
-		// Since runScan is an action, it calls this mutation using ctx.runMutation.
-		// Does the mutation know it's being called by an action? No.
-		// We should verify ownership here too.
-
-		// However, runScan already does the expensive checks.
-		// Let's add the check for consistency.
-
 		await requireProjectOwner(ctx, args.projectId);
 
 		await ctx.db.patch(args.projectId, {
