@@ -20,6 +20,8 @@ export default defineSchema({
 		name: v.string(),
 		description: v.string(),
 		industry: v.string(),
+		url: v.optional(v.string()),
+		primaryUseCase: v.optional(v.string()),
 		createdAt: v.number(),
 		lastScanAt: v.optional(v.number()),
 		visibilityScore: v.optional(v.number()),

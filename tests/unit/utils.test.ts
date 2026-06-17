@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { INTENT_QUERY_TEMPLATES, PRICING_TIERS } from '../../convex/lib/constants';
 import { parseJSONResponse } from '../../convex/lib/llm/types';
-import { calculateVisibilityScore, getScoreColor, getScoreLabel } from '../../convex/lib/utils';
+import {
+	calculateVisibilityScore,
+	getScoreColor,
+	getScoreLabel,
+	validateProjectUrl,
+} from '../../convex/lib/utils';
 
 describe('calculateVisibilityScore', () => {
 	it('returns 0 when totalQueries is 0', () => {
@@ -188,5 +193,58 @@ describe('INTENT_QUERY_TEMPLATES', () => {
 			const count = INTENT_QUERY_TEMPLATES.filter((q) => q.category === cat).length;
 			expect(count).toBe(6);
 		});
+	});
+});
+
+describe('validateProjectUrl', () => {
+	it('accepts a well-formed https URL and returns it normalized', () => {
+		const result = validateProjectUrl('https://acme.com');
+		expect(result.valid).toBe(true);
+		expect(result.url).toBe('https://acme.com/');
+	});
+
+	it('accepts a bare domain by defaulting to https', () => {
+		const result = validateProjectUrl('acme.com');
+		expect(result.valid).toBe(true);
+		expect(result.url).toBe('https://acme.com/');
+	});
+
+	it('accepts http URLs', () => {
+		expect(validateProjectUrl('http://acme.com').valid).toBe(true);
+	});
+
+	it('trims surrounding whitespace before validating', () => {
+		expect(validateProjectUrl('  https://acme.com  ').valid).toBe(true);
+	});
+
+	it('rejects an empty string', () => {
+		const result = validateProjectUrl('   ');
+		expect(result.valid).toBe(false);
+	});
+
+	it('rejects unsafe javascript: scheme', () => {
+		const result = validateProjectUrl('javascript:alert(1)');
+		expect(result.valid).toBe(false);
+	});
+
+	it('rejects data: URIs', () => {
+		expect(validateProjectUrl('data:text/html,<script>').valid).toBe(false);
+	});
+
+	it('rejects non-web protocols like ftp', () => {
+		expect(validateProjectUrl('ftp://files.acme.com').valid).toBe(false);
+	});
+
+	it('rejects a hostname with no dot', () => {
+		expect(validateProjectUrl('localhost').valid).toBe(false);
+	});
+
+	it('rejects malformed input', () => {
+		expect(validateProjectUrl('not a url').valid).toBe(false);
+	});
+
+	it('rejects overly long URLs', () => {
+		const longUrl = `https://acme.com/${'a'.repeat(2100)}`;
+		expect(validateProjectUrl(longUrl).valid).toBe(false);
 	});
 });

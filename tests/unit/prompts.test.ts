@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { fillIntentQueryTemplate } from '../../convex/lib/constants';
 import {
     getBrandVisibilityPrompt,
     getCompetitorAdvantagePrompt,
@@ -51,6 +52,55 @@ describe('getBrandVisibilityPrompt', () => {
         // Ensure standard instructions are intact
         expect(prompt).toContain('"mentioned": true/false');
         expect(prompt).toContain('"position": "primary" | "secondary" | "not_mentioned"');
+    });
+
+    it('omits the product context block when no url or use case is provided', () => {
+        const prompt = getBrandVisibilityPrompt('best CRM', 'Acme', 'A CRM');
+        expect(prompt).not.toContain('Product context:');
+    });
+
+    it('injects sanitized url and use case when provided', () => {
+        const prompt = getBrandVisibilityPrompt('best CRM', 'Acme', 'A CRM', {
+            url: 'https://acme.com',
+            useCase: 'managing "sales" pipelines',
+        });
+
+        expect(prompt).toContain('Product context:');
+        expect(prompt).toContain('https://acme.com');
+        expect(prompt).toContain("managing 'sales' pipelines");
+    });
+
+    it('includes only the use case line when url is absent', () => {
+        const prompt = getBrandVisibilityPrompt('best CRM', 'Acme', 'A CRM', {
+            useCase: 'sales automation',
+        });
+        expect(prompt).toContain('Primary use case: sales automation');
+        expect(prompt).not.toContain('Website:');
+    });
+});
+
+describe('fillIntentQueryTemplate', () => {
+    const vars = {
+        product: 'Acme',
+        industry: 'CRM',
+        useCase: 'managing sales pipelines',
+        competitor: 'Salesforce',
+    };
+
+    it('substitutes every placeholder', () => {
+        expect(fillIntentQueryTemplate('{PRODUCT} vs {COMPETITOR}', vars)).toBe('Acme vs Salesforce');
+        expect(fillIntentQueryTemplate('Best {INDUSTRY} tool', vars)).toBe('Best CRM tool');
+        expect(fillIntentQueryTemplate('Best tool for {USE_CASE}', vars)).toBe(
+            'Best tool for managing sales pipelines',
+        );
+    });
+
+    it('replaces all occurrences of a repeated placeholder', () => {
+        expect(fillIntentQueryTemplate('{PRODUCT} {PRODUCT}', vars)).toBe('Acme Acme');
+    });
+
+    it('leaves text without placeholders unchanged', () => {
+        expect(fillIntentQueryTemplate('no placeholders here', vars)).toBe('no placeholders here');
     });
 });
 

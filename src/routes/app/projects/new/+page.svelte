@@ -13,6 +13,7 @@
     } from "lucide-svelte";
     import { goto } from "$app/navigation";
     import { api } from "$convex/_generated/api";
+    import { validateProjectUrl } from "$convex/lib/utils";
     import * as Button from "$lib/components/ui/button/index.js";
     import Input from "$lib/components/ui/input.svelte";
     import Label from "$lib/components/ui/label.svelte";
@@ -23,6 +24,8 @@
     let name = $state("");
     let description = $state("");
     let industry = $state("");
+    let url = $state("");
+    let primaryUseCase = $state("");
     let competitors = $state<{ name: string; url: string }[]>([
         { name: "", url: "" },
     ]);
@@ -31,11 +34,19 @@
 
     const totalSteps = 3;
 
+    // URL is optional, but if provided it must be valid before continuing.
+    const urlError = $derived(
+        url.trim().length > 0 && !validateProjectUrl(url).valid
+            ? "Enter a valid website URL (e.g. https://acme.com)"
+            : null,
+    );
+
     // Validation helpers
     const canProceedToStep2 = $derived(
         name.trim().length > 0 &&
             description.trim().length > 0 &&
-            industry.trim().length > 0,
+            industry.trim().length > 0 &&
+            urlError === null,
     );
     const validCompetitors = $derived(
         competitors.filter((c) => c.name.trim().length > 0),
@@ -88,6 +99,8 @@
                 name: name.trim(),
                 description: description.trim(),
                 industry: industry.trim(),
+                url: url.trim() || undefined,
+                primaryUseCase: primaryUseCase.trim() || undefined,
                 competitors: finalCompetitors,
             });
 
@@ -253,6 +266,52 @@
                             <p class="text-xs text-slate-500">
                                 Keep it clear and outcome-focused. Avoid
                                 marketing fluff.
+                            </p>
+                        </div>
+
+                        <div class="space-y-3">
+                            <Label
+                                for="product-url"
+                                class="font-medium text-slate-700"
+                                >Website <span class="text-slate-400 font-normal"
+                                    >(optional)</span
+                                ></Label
+                            >
+                            <Input
+                                id="product-url"
+                                type="url"
+                                placeholder="https://acme.com"
+                                bind:value={url}
+                                class="h-12 text-lg px-4 bg-slate-50/50 border-slate-200 focus:bg-white"
+                            />
+                            {#if urlError}
+                                <p class="text-xs text-red-600">{urlError}</p>
+                            {:else}
+                                <p class="text-xs text-slate-500">
+                                    We use your site to ground the AI's
+                                    evaluation in real positioning.
+                                </p>
+                            {/if}
+                        </div>
+
+                        <div class="space-y-3">
+                            <Label
+                                for="use-case"
+                                class="font-medium text-slate-700"
+                                >Primary use case <span
+                                    class="text-slate-400 font-normal"
+                                    >(optional)</span
+                                ></Label
+                            >
+                            <Input
+                                id="use-case"
+                                placeholder="e.g. automating code reviews"
+                                bind:value={primaryUseCase}
+                                class="h-12 text-lg px-4 bg-slate-50/50 border-slate-200 focus:bg-white"
+                            />
+                            <p class="text-xs text-slate-500">
+                                The main job buyers hire you for. Sharpens
+                                use-case buyer prompts.
                             </p>
                         </div>
                     </div>
