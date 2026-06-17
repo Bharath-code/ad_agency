@@ -371,54 +371,62 @@ export const getModelComparison = query({
 	handler: async (ctx, args) => {
 		await requireProjectOwner(ctx, args.projectId);
 
-		// Fetch a sufficient number of recent results to find various models
-		const recentResults = await ctx.db
-			.query('results')
-			.withIndex('by_project_createdAt', (q) => q.eq('projectId', args.projectId))
-			.order('desc')
-			.take(1000);
+		// A single Phase 4 scan runs every configured model, so per-model scores
+		// come from the latest scan's per-query `modelResults`. Legacy rows that
+		// predate multi-model storage fall back to the top-level model + position.
+		const latestResults = await getLatestScanResults(ctx, args.projectId);
+		if (latestResults.length === 0) return [];
 
-		if (recentResults.length === 0) return [];
+		const scanId = latestResults[0].scanId;
+		const lastScanAt = Math.max(...latestResults.map((r) => r.createdAt));
 
-		// Find the latest scanId for each model
-		const latestScanIdByModel = new Map<string, string>();
+		type ModelStat = { primaryMentions: number; secondaryMentions: number; notMentioned: number };
+		const statsByModel = new Map<string, ModelStat>();
 
-		for (const result of recentResults) {
-			const model = result.model || 'unknown';
-			if (!latestScanIdByModel.has(model)) {
-				latestScanIdByModel.set(model, result.scanId);
+		const tally = (model: string, position: ResultDoc['position']) => {
+			const stat = statsByModel.get(model) ?? {
+				primaryMentions: 0,
+				secondaryMentions: 0,
+				notMentioned: 0,
+			};
+			if (position === 'primary') stat.primaryMentions++;
+			else if (position === 'secondary') stat.secondaryMentions++;
+			else stat.notMentioned++;
+			statsByModel.set(model, stat);
+		};
+
+		for (const result of latestResults) {
+			if (result.modelResults && result.modelResults.length > 0) {
+				for (const mr of result.modelResults) {
+					// A model that failed every run on this query has no verdict to score.
+					if (mr.successfulRuns === 0) continue;
+					tally(mr.model, mr.position);
+				}
+			} else {
+				tally(result.model || 'unknown', result.position);
 			}
 		}
 
-		const comparison = [];
-
-		for (const [model, scanId] of latestScanIdByModel.entries()) {
-			const scanResults = recentResults.filter((r) => r.scanId === scanId);
-			const totalQueries = scanResults.length;
-			const primaryMentions = scanResults.filter((r) => r.position === 'primary').length;
-			const secondaryMentions = scanResults.filter((r) => r.position === 'secondary').length;
-			const notMentioned = scanResults.filter((r) => r.position === 'not_mentioned').length;
-
-			const visibilityScore = calculateVisibilityScore({
-				primaryMentions,
-				secondaryMentions,
-				totalQueries,
-			});
-
-			comparison.push({
+		const comparison = [...statsByModel.entries()].map(([model, stat]) => {
+			const totalQueries = stat.primaryMentions + stat.secondaryMentions + stat.notMentioned;
+			return {
 				model,
 				scanId,
-				visibilityScore,
+				visibilityScore: calculateVisibilityScore({
+					primaryMentions: stat.primaryMentions,
+					secondaryMentions: stat.secondaryMentions,
+					totalQueries,
+				}),
 				totalQueries,
-				primaryMentions,
-				secondaryMentions,
-				notMentioned,
-				lastScanAt: scanResults[0].createdAt
-			});
-		}
+				primaryMentions: stat.primaryMentions,
+				secondaryMentions: stat.secondaryMentions,
+				notMentioned: stat.notMentioned,
+				lastScanAt,
+			};
+		});
 
-		return comparison.sort((a, b) => b.lastScanAt - a.lastScanAt);
-	}
+		return comparison.sort((a, b) => b.visibilityScore - a.visibilityScore);
+	},
 });
 
 /**
@@ -433,6 +441,26 @@ const resultArgs = {
 	position: v.union(v.literal('primary'), v.literal('secondary'), v.literal('not_mentioned')),
 	context: v.string(),
 	confidence: v.union(v.literal('high'), v.literal('medium'), v.literal('low')),
+	runCount: v.optional(v.number()),
+	successfulRuns: v.optional(v.number()),
+	consensusRatio: v.optional(v.number()),
+	modelResults: v.optional(
+		v.array(
+			v.object({
+				model: v.string(),
+				position: v.union(
+					v.literal('primary'),
+					v.literal('secondary'),
+					v.literal('not_mentioned'),
+				),
+				mentioned: v.boolean(),
+				runCount: v.number(),
+				successfulRuns: v.number(),
+				consensusRatio: v.number(),
+				confidence: v.union(v.literal('high'), v.literal('medium'), v.literal('low')),
+			}),
+		),
+	),
 	rawResponse: v.optional(v.string()),
 	competitorMentioned: v.optional(v.string()),
 	competitorReasons: v.optional(v.array(v.string())),

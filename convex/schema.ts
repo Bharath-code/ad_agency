@@ -51,13 +51,35 @@ export default defineSchema({
 		scanId: v.string(), // Groups results from same scan
 
 		// Model tracking (for multi-model support)
-		model: v.optional(v.string()), // 'openai', 'claude', 'gemini', 'perplexity'
+		model: v.optional(v.string()), // aggregate label: 'consensus', 'openai', 'claude', ...
 
-		// Visibility data
+		// Visibility data (cross-model aggregate when multiple models ran)
 		mentioned: v.boolean(),
 		position: v.union(v.literal('primary'), v.literal('secondary'), v.literal('not_mentioned')),
 		context: v.string(),
 		confidence: v.union(v.literal('high'), v.literal('medium'), v.literal('low')),
+
+		// Multi-model confidence (Phase 4) — aggregate run accounting + per-model breakdown
+		runCount: v.optional(v.number()), // total planned runs across every model
+		successfulRuns: v.optional(v.number()), // total runs that returned parseable output
+		consensusRatio: v.optional(v.number()), // models agreeing on the winning position / models that succeeded
+		modelResults: v.optional(
+			v.array(
+				v.object({
+					model: v.string(),
+					position: v.union(
+						v.literal('primary'),
+						v.literal('secondary'),
+						v.literal('not_mentioned'),
+					),
+					mentioned: v.boolean(),
+					runCount: v.number(),
+					successfulRuns: v.number(),
+					consensusRatio: v.number(),
+					confidence: v.union(v.literal('high'), v.literal('medium'), v.literal('low')),
+				}),
+			),
+		),
 
 		// Raw LLM response (for transcripts feature)
 		rawResponse: v.optional(v.string()),
