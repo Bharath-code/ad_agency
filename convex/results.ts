@@ -9,6 +9,7 @@ import {
 	query,
 } from './_generated/server';
 import { requireProjectOwner } from './lib/auth';
+import { type CompetitorWinLoss, buildCompetitorWinLoss } from './lib/competitorWinLoss';
 import { type PromptEvidence, toEvidence } from './lib/evidence';
 import { calculateVisibilityScore } from './lib/utils';
 
@@ -207,92 +208,6 @@ export const getDashboardSummaryForProject = internalQuery({
 });
 
 /**
- * Competitor Head-to-Head Comparison
- * Shows direct "You vs Competitor X" breakdown - KEY DIFFERENTIATOR from Okara
- */
-export const getCompetitorComparison = query({
-	args: { projectId: v.id('projects') },
-	handler: async (ctx, args) => {
-		await requireProjectOwner(ctx, args.projectId);
-
-		const latestResults = await getLatestScanResults(ctx, args.projectId);
-		if (latestResults.length === 0) return null;
-
-		const queries = await ctx.db
-			.query('intentQueries')
-			.withIndex('by_project', (q) => q.eq('projectId', args.projectId))
-			.collect();
-		const queryMap = new Map(queries.map((q) => [q._id, q.query]));
-
-		const competitorStats: Record<
-			string,
-			{
-				wins: number;
-				reasons: string[];
-				queries: string[];
-			}
-		> = {};
-
-		const brandStats = {
-			primaryMentions: 0,
-			secondaryMentions: 0,
-			notMentioned: 0,
-			winningQueries: [] as string[],
-		};
-
-		for (const result of latestResults) {
-			const queryText = queryMap.get(result.queryId) ?? '';
-
-			if (result.position === 'primary') {
-				brandStats.primaryMentions++;
-				brandStats.winningQueries.push(queryText);
-			} else if (result.position === 'secondary') {
-				brandStats.secondaryMentions++;
-			} else {
-				brandStats.notMentioned++;
-
-				if (result.competitorMentioned) {
-					if (!competitorStats[result.competitorMentioned]) {
-						competitorStats[result.competitorMentioned] = {
-							wins: 0,
-							reasons: [],
-							queries: [],
-						};
-					}
-					competitorStats[result.competitorMentioned].wins++;
-					competitorStats[result.competitorMentioned].queries.push(queryText);
-					if (result.competitorReasons) {
-						competitorStats[result.competitorMentioned].reasons.push(...result.competitorReasons);
-					}
-				}
-			}
-		}
-
-		const competitors = Object.entries(competitorStats)
-			.map(([name, stats]) => ({
-				name,
-				wins: stats.wins,
-				winRate: Math.round((stats.wins / latestResults.length) * 100),
-				topReasons: [...new Set(stats.reasons)].slice(0, 3),
-				queriesWon: stats.queries.slice(0, 3),
-			}))
-			.sort((a, b) => b.wins - a.wins);
-
-		return {
-			totalQueries: latestResults.length,
-			brand: {
-				...brandStats,
-				winRate: Math.round(
-					((brandStats.primaryMentions + brandStats.secondaryMentions) / latestResults.length) *
-					100,
-				),
-			},
-			competitors,
-		};
-	},
-});
-
-/**
  * Historical Trends
  * Track visibility over time - data moat feature
  * Limited to last ~100 scans (3000 results) to prevent memory blowup
@@ -456,6 +371,31 @@ export const getEvidence = query({
 		const queryMap = new Map(queries.map((q) => [q._id, q.query]));
 
 		return latestResults.map((result) => toEvidence(result, queryMap.get(result.queryId) ?? ''));
+	},
+});
+
+/**
+ * Competitor win/loss analysis for the latest scan (Phase 6).
+ * Groups missed prompts by winning competitor, with deduplicated reason themes
+ * (each carrying the prompt ids it came from, so the UI can drill into evidence)
+ * and representative prompts. Returns null when there is no scan yet so the UI
+ * can show a "run a scan" empty state distinct from "you win everything".
+ */
+export const getCompetitorWinLoss = query({
+	args: { projectId: v.id('projects') },
+	handler: async (ctx, args): Promise<CompetitorWinLoss | null> => {
+		await requireProjectOwner(ctx, args.projectId);
+
+		const latestResults = await getLatestScanResults(ctx, args.projectId);
+		if (latestResults.length === 0) return null;
+
+		const queries = await ctx.db
+			.query('intentQueries')
+			.withIndex('by_project', (q) => q.eq('projectId', args.projectId))
+			.collect();
+		const queryMap = new Map<string, string>(queries.map((q) => [q._id, q.query]));
+
+		return buildCompetitorWinLoss(latestResults, queryMap);
 	},
 });
 

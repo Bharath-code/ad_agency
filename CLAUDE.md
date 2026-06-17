@@ -75,11 +75,27 @@ See `plans/promptlens-roadmap.md` → "Execution Protocol" + "Status Tracker" fo
   Decision: evidence renders the **stored structured verdict**, not verbatim raw model text (user choice —
   no scan/schema change).
 
-**Next up: Phase 6 — Competitor win/loss dashboard.** Branch `feat/phase-6-competitor-winloss`. Group missed
-prompts by winning competitor + repeated reason themes (dedup); each competitor shows representative prompts;
-drill into evidence per reason; polished empty state. **Also carried over from Phase 4:** make competitor
-"who wins & why" reasoning cross-model consensus (reuse `convex/lib/consensus.ts`). See
-`plans/promptlens-roadmap.md` → "Phase 6".
+- **Phase 6 — Competitor win/loss dashboard** (branch `feat/phase-6-competitor-winloss`): two pure,
+  unit-tested modules in the established "pure core + thin Convex shell" pattern. `convex/lib/competitorConsensus.ts`
+  (`consensusCompetitor`) makes the competitor "who wins & why" reasoning **cross-model** — `scans.ts` now runs
+  the competitor-advantage prompt across every selected provider (×3 temperatures), pools the runs, votes a
+  winner + aggregates reason themes, and scores confidence via the Phase 4 `deriveConfidence` (a dead provider
+  drags it down). No schema change — still stores `competitorMentioned` + `competitorReasons`. The old
+  `analyzeCompetitorWithConfidence` (router/single-provider) is gone; fixes generation stays single-provider
+  (Phase 7). `convex/lib/competitorWinLoss.ts` (`buildCompetitorWinLoss`) groups latest-scan misses by winning
+  competitor → deduped reason **themes** (normalized lowercase/trim/collapse-whitespace) each carrying its
+  prompt `queryId`s + representative prompts + brand win rate. New `results.getCompetitorWinLoss(projectId)`
+  query (returns null when no scan). New `CompetitorWinLoss.svelte` (replaces `CompetitorBattle` — which, plus
+  the dead `getCompetitorComparison` query, were removed): clickable reason themes (with ×count) and prompt
+  chips → `EvidenceModal` via `onSelectEvidence`; distinct empty states for "no scan" vs "you won everything".
+  Wired into the **dashboard** only (portfolio-level analytic). Tests: `tests/unit/competitorConsensus.test.ts`
+  (6), `tests/unit/competitorWinLoss.test.ts` (5). Decision: reason grouping is normalized exact-match, not
+  semantic/LLM clustering (out of scope).
+
+**Next up: Phase 7 — Recommendation action queue.** Branch `feat/phase-7-action-queue`. Turn missed prompts into
+trackable action items (positioning/content/proof/comparison/source) with planned/shipped/ignored/archived
+statuses, evidence links, top-3 priority surfacing, and before/after movement after re-scan. See
+`plans/promptlens-roadmap.md` → "Phase 7".
 
 **Known open decisions (do not silently resolve):**
 - **Pricing is inconsistent** across three sources — code (`convex/lib/constants.ts`: indie $49 /

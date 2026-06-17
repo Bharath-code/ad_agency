@@ -4,7 +4,7 @@
 	import { api } from "$convex/_generated/api";
 	import type { Id } from "$convex/_generated/dataModel";
 	import type { PromptEvidence } from "$convex/lib/evidence";
-	import CompetitorBattle from "$lib/components/dashboard/CompetitorBattle.svelte";
+	import CompetitorWinLoss from "$lib/components/dashboard/CompetitorWinLoss.svelte";
 	import EvidenceModal from "$lib/components/dashboard/EvidenceModal.svelte";
 	import RecommendedFixes from "$lib/components/dashboard/RecommendedFixes.svelte";
 	import ResponseTranscript from "$lib/components/dashboard/ResponseTranscript.svelte";
@@ -57,7 +57,7 @@
 		} | null;
 	};
 
-	type CompetitorComparison = {
+	type CompetitorWinLossData = {
 		totalQueries: number;
 		brand: {
 			primaryMentions: number;
@@ -69,8 +69,12 @@
 			name: string;
 			wins: number;
 			winRate: number;
-			topReasons: string[];
-			queriesWon: string[];
+			reasons: Array<{
+				reason: string;
+				count: number;
+				queryIds: string[];
+			}>;
+			prompts: Array<{ queryId: string; query: string }>;
 		}>;
 	};
 
@@ -99,7 +103,7 @@
 	let projects = $state<ProjectItem[]>([]);
 	let selectedProjectId = $state<Id<"projects"> | null>(null);
 	let dashboardData = $state<DashboardSummary | null>(null);
-	let competitorData = $state<CompetitorComparison | null>(null);
+	let competitorData = $state<CompetitorWinLossData | null>(null);
 	let transcriptData = $state<TranscriptResult[]>([]);
 	let modelComparisonData = $state<ModelComparisonData>([]);
 	let evidenceData = $state<PromptEvidence[]>([]);
@@ -190,7 +194,7 @@
 						convex.query(api.results.getDashboardSummary, {
 							projectId,
 						}),
-						convex.query(api.results.getCompetitorComparison, {
+						convex.query(api.results.getCompetitorWinLoss, {
 							projectId,
 						}),
 						convex.query(api.results.getResultsWithTranscripts, {
@@ -287,21 +291,42 @@
 							name: "AdTechPro",
 							wins: 20,
 							winRate: 40,
-							topReasons: [
-								"Broader integrations",
-								"More enterprise references",
+							reasons: [
+								{
+									reason: "Broader integrations",
+									count: 3,
+									queryIds: ["mock-miss-1"],
+								},
+								{
+									reason: "More enterprise references",
+									count: 1,
+									queryIds: ["mock-miss-1"],
+								},
 							],
-							queriesWon: [
-								"competitor analysis ai",
-								"agency automation software",
+							prompts: [
+								{
+									queryId: "mock-miss-1",
+									query: "competitor analysis ai",
+								},
 							],
 						},
 						{
 							name: "VisibilityFlow",
 							wins: 7,
 							winRate: 14,
-							topReasons: ["Lower pricing signal"],
-							queriesWon: ["cheap visibility tools"],
+							reasons: [
+								{
+									reason: "Lower pricing signal",
+									count: 2,
+									queryIds: ["mock-miss-1"],
+								},
+							],
+							prompts: [
+								{
+									queryId: "mock-miss-1",
+									query: "cheap visibility tools",
+								},
+							],
 						},
 					],
 				};
@@ -668,12 +693,13 @@
 				</div>
 			{/if}
 
-			<!-- New: Competitor Battle Section -->
-			{#if competitorData}
-				<div class="battle-section">
-					<CompetitorBattle data={competitorData} />
-				</div>
-			{/if}
+			<!-- Competitor Win/Loss Section (Phase 6) -->
+			<div class="battle-section">
+				<CompetitorWinLoss
+					data={competitorData}
+					onSelectEvidence={openEvidence}
+				/>
+			</div>
 
 			<div class="insights-grid">
 				<TopWins wins={dashboardData.topWins ?? []} onSelect={openEvidence} />

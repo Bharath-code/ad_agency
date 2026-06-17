@@ -29,8 +29,8 @@ so context stays clean. Repeat this loop for every phase:
 - [x] **Phase 3 — Industry prompt library** — branch `feat/phase-3-prompt-library`
 - [x] **Phase 4 — Multi-model confidence** — branch `feat/phase-4-multi-model`
 - [x] **Phase 5 — Evidence viewer** — branch `feat/phase-5-evidence-viewer`
-- [ ] **Phase 6 — Competitor win/loss dashboard** ← NEXT
-- [ ] **Phase 7 — Recommendation action queue**
+- [x] **Phase 6 — Competitor win/loss dashboard** — branch `feat/phase-6-competitor-winloss`
+- [ ] **Phase 7 — Recommendation action queue** ← NEXT
 - [ ] **Phase 8 — Weekly report & retention**
 - [ ] **Phase 9 — Billing & entitlements** (reconcile the 3-way pricing inconsistency here)
 - [ ] **Phase 10 — Agency reports**
@@ -154,12 +154,12 @@ Create a competitor analysis section that groups missed prompts by winning compe
 
 ### Acceptance Criteria
 
-- [ ] Dashboard shows competitor win counts from latest scan.
-- [ ] Each competitor includes representative prompts.
-- [ ] Repeated reasons are grouped and deduplicated.
-- [ ] User can drill into evidence for each reason.
-- [ ] Empty state explains what happens after a scan.
-- [ ] Competitor "who wins & why" reasoning runs cross-model (consensus winner + reasons across
+- [x] Dashboard shows competitor win counts from latest scan.
+- [x] Each competitor includes representative prompts.
+- [x] Repeated reasons are grouped and deduplicated.
+- [x] User can drill into evidence for each reason.
+- [x] Empty state explains what happens after a scan.
+- [x] Competitor "who wins & why" reasoning runs cross-model (consensus winner + reasons across
       configured providers, reusing the Phase 4 `convex/lib/consensus.ts` aggregation), so reason
       themes reflect agreement rather than a single provider. *(Carried over from Phase 4.)*
 
