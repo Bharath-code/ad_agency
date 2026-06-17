@@ -9,6 +9,7 @@ import {
 	query,
 } from './_generated/server';
 import { requireProjectOwner } from './lib/auth';
+import { type PromptEvidence, toEvidence } from './lib/evidence';
 import { calculateVisibilityScore } from './lib/utils';
 
 type ResultDoc = Doc<'results'>;
@@ -22,16 +23,19 @@ type DashboardSummary = {
 	secondaryMentions: number;
 	notMentioned: number;
 	topWins: Array<{
+		queryId: Id<'intentQueries'>;
 		query: string;
 		context: string;
 		confidence: 'high' | 'medium' | 'low';
 	}>;
 	topMisses: Array<{
+		queryId: Id<'intentQueries'>;
 		query: string;
 		competitorMentioned: string | undefined;
 		reasons: string[];
 	}>;
 	recommendedFixes: Array<{
+		queryId: Id<'intentQueries'>;
 		query: string;
 		positioningFix: string | undefined;
 		contentSuggestion: string | undefined;
@@ -104,6 +108,7 @@ async function buildDashboardSummary(
 		.filter((r) => r.position === 'primary')
 		.slice(0, 3)
 		.map((r) => ({
+			queryId: r.queryId,
 			query: queryMap.get(r.queryId) ?? '',
 			context: r.context,
 			confidence: r.confidence,
@@ -113,6 +118,7 @@ async function buildDashboardSummary(
 		.filter((r) => r.position === 'not_mentioned')
 		.slice(0, 3)
 		.map((r) => ({
+			queryId: r.queryId,
 			query: queryMap.get(r.queryId) ?? '',
 			competitorMentioned: r.competitorMentioned,
 			reasons: r.competitorReasons ?? [],
@@ -122,6 +128,7 @@ async function buildDashboardSummary(
 		.filter((r) => r.position === 'not_mentioned' && r.positioningFix)
 		.slice(0, 3)
 		.map((r) => ({
+			queryId: r.queryId,
 			query: queryMap.get(r.queryId) ?? '',
 			positioningFix: r.positioningFix,
 			contentSuggestion: r.contentSuggestion,
@@ -426,6 +433,29 @@ export const getModelComparison = query({
 		});
 
 		return comparison.sort((a, b) => b.visibilityScore - a.visibilityScore);
+	},
+});
+
+/**
+ * Per-prompt evidence for the latest scan (Phase 5).
+ * Built from typed result fields via `toEvidence`, so raw transcripts, internal
+ * system prompts, and provider API metadata never reach the client.
+ */
+export const getEvidence = query({
+	args: { projectId: v.id('projects') },
+	handler: async (ctx, args): Promise<PromptEvidence[]> => {
+		await requireProjectOwner(ctx, args.projectId);
+
+		const latestResults = await getLatestScanResults(ctx, args.projectId);
+		if (latestResults.length === 0) return [];
+
+		const queries = await ctx.db
+			.query('intentQueries')
+			.withIndex('by_project', (q) => q.eq('projectId', args.projectId))
+			.collect();
+		const queryMap = new Map(queries.map((q) => [q._id, q.query]));
+
+		return latestResults.map((result) => toEvidence(result, queryMap.get(result.queryId) ?? ''));
 	},
 });
 

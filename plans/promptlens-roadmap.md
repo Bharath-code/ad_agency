@@ -28,8 +28,8 @@ so context stays clean. Repeat this loop for every phase:
 - [x] **Phase 2 — Project URL + primary use case** — branch `feat/phase-2-project-url`
 - [x] **Phase 3 — Industry prompt library** — branch `feat/phase-3-prompt-library`
 - [x] **Phase 4 — Multi-model confidence** — branch `feat/phase-4-multi-model`
-- [ ] **Phase 5 — Evidence viewer** ← NEXT
-- [ ] **Phase 6 — Competitor win/loss dashboard**
+- [x] **Phase 5 — Evidence viewer** — branch `feat/phase-5-evidence-viewer`
+- [ ] **Phase 6 — Competitor win/loss dashboard** ← NEXT
 - [ ] **Phase 7 — Recommendation action queue**
 - [ ] **Phase 8 — Weekly report & retention**
 - [ ] **Phase 9 — Billing & entitlements** (reconcile the 3-way pricing inconsistency here)
@@ -136,11 +136,11 @@ Add a prompt detail view with prompt text, model, raw transcript, parsed recomme
 
 ### Acceptance Criteria
 
-- [ ] Every top win and top miss links to prompt evidence.
-- [ ] Raw model output renders as text, never HTML.
-- [ ] Internal system prompts and API metadata remain hidden.
-- [ ] Empty and error states are polished.
-- [ ] Evidence view works on mobile and desktop.
+- [x] Every top win and top miss links to prompt evidence.
+- [x] Raw model output renders as text, never HTML.
+- [x] Internal system prompts and API metadata remain hidden.
+- [x] Empty and error states are polished.
+- [x] Evidence view works on mobile and desktop.
 
 ---
 
