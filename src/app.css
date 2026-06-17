@@ -216,6 +216,46 @@
 	padding-bottom: var(--spacing-section);
 }
 
+/* Button utilities used by in-app surfaces */
+.btn-saas {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.5rem;
+	padding: 0.6rem 1.1rem;
+	font-family: var(--font-sans);
+	font-weight: 600;
+	font-size: 0.9rem;
+	border-radius: var(--radius-full);
+	border: 1px solid transparent;
+	cursor: pointer;
+	text-decoration: none;
+	transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease,
+		box-shadow 0.15s ease;
+}
+.btn-saas:disabled {
+	opacity: 0.55;
+	cursor: not-allowed;
+}
+.btn-saas-primary {
+	background: var(--color-primary);
+	color: var(--color-primary-foreground);
+	box-shadow: 0 1px 2px rgba(12, 93, 77, 0.25);
+}
+.btn-saas-primary:hover:not(:disabled) {
+	background: var(--color-brand-dark);
+	transform: translateY(-1px);
+	box-shadow: 0 8px 22px -10px rgba(12, 93, 77, 0.6);
+}
+.btn-saas-secondary {
+	background: var(--color-surface);
+	color: var(--color-foreground);
+	border-color: var(--color-input);
+}
+.btn-saas-secondary:hover:not(:disabled) {
+	border-color: var(--color-foreground);
+}
+
 .dark {
 	--color-background: hsl(222.2 84% 4.9%);
 	--color-foreground: hsl(210 40% 98%);

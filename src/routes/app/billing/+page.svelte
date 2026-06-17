@@ -36,12 +36,31 @@ onMount(() => {
 	loadSubscription();
 });
 
+const BYPASS = import.meta.env.VITE_BYPASS_AUTH === 'true';
+
 async function loadSubscription() {
 	try {
-		const data = await convex.query(api.payments.getSubscription, {});
+		const query = convex.query(api.payments.getSubscription, {});
+		const data = BYPASS
+			? await Promise.race([
+					query,
+					new Promise<BillingSubscription>((_, reject) =>
+						setTimeout(() => reject(new Error('sandbox timeout')), 2000),
+					),
+				])
+			: await query;
 		subscription = data;
 	} catch (error) {
 		console.error('Failed to load subscription:', error);
+		if (BYPASS) {
+			subscription = {
+				plan: 'free',
+				subscription: null,
+				limits: { scans: 5, competitors: 2, queries: 10 },
+				scansUsed: 2,
+				canScan: true,
+			};
+		}
 	} finally {
 		isLoading = false;
 	}
@@ -412,8 +431,10 @@ const plans = [
     }
 
     .price {
+        font-family: var(--font-display);
         font-size: var(--text-3xl);
-        font-weight: 700;
+        font-weight: 500;
+        letter-spacing: -0.02em;
     }
 
     .period {
@@ -438,7 +459,7 @@ const plans = [
     }
 
     .plan-features li :global(svg) {
-        color: #16a34a;
+        color: var(--color-primary);
     }
 
     :global(.spin) {
