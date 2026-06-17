@@ -30,18 +30,31 @@ IMPORTANT:
  * Step 1: Brand Visibility Prompt
  * Determines if the brand would be mentioned for a given intent query
  */
+export interface ProductContext {
+	url?: string;
+	useCase?: string;
+}
+
 export function getBrandVisibilityPrompt(
 	query: string,
 	productName: string,
 	productDescription: string,
+	context?: ProductContext,
 ): string {
 	const q = sanitizePromptInput(query);
 	const name = sanitizePromptInput(productName, 100);
 	const desc = sanitizePromptInput(productDescription, 500);
 
+	const url = context?.url ? sanitizePromptInput(context.url, 200) : '';
+	const useCase = context?.useCase ? sanitizePromptInput(context.useCase, 200) : '';
+	const contextLines = [url ? `Website: ${url}` : '', useCase ? `Primary use case: ${useCase}` : '']
+		.filter(Boolean)
+		.join('\n');
+	const contextBlock = contextLines ? `\n\nProduct context:\n${contextLines}` : '';
+
 	return `Given this user query: "${q}"
 
-Would you mention or recommend "${name}" (${desc})?
+Would you mention or recommend "${name}" (${desc})?${contextBlock}
 
 Respond in this exact JSON format:
 {

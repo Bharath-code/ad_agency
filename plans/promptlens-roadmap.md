@@ -22,8 +22,8 @@ so context stays clean. Repeat this loop for every phase:
 
 - [x] **Phase 0 — Rename to PromptLens** (Task 1) — branch `feat/promptlens-roadmap`
 - [x] **Full UI/UX redesign** — "Editorial Intelligence" design system (landing + entire app shell)
-- [ ] **Phase 2 — Project URL + primary use case** ← NEXT
-- [ ] **Phase 3 — Industry prompt library**
+- [x] **Phase 2 — Project URL + primary use case** — branch `feat/phase-2-project-url`
+- [ ] **Phase 3 — Industry prompt library** ← NEXT
 - [ ] **Phase 4 — Multi-model confidence**
 - [ ] **Phase 5 — Evidence viewer**
 - [ ] **Phase 6 — Competitor win/loss dashboard**
@@ -73,11 +73,11 @@ Extend project creation with URL and primary use case, then feed those fields in
 
 ### Acceptance Criteria
 
-- [ ] Project creation captures product URL and primary use case.
-- [ ] URL validation prevents unsafe or malformed values.
-- [ ] Project profile can be edited after creation.
-- [ ] Prompt templates use product URL and use case where useful.
-- [ ] Tests cover validation and prompt substitution.
+- [x] Project creation captures product URL and primary use case.
+- [x] URL validation prevents unsafe or malformed values.
+- [x] Project profile can be edited after creation.
+- [x] Prompt templates use product URL and use case where useful.
+- [x] Tests cover validation and prompt substitution.
 
 ---
 

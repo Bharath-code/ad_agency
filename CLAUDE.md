@@ -30,13 +30,18 @@ See `plans/promptlens-roadmap.md` → "Execution Protocol" + "Status Tracker" fo
 - **Rename to PromptLens** (roadmap Task 1): all user-facing surfaces, metadata, emails, README — on
   branch `feat/promptlens-roadmap`.
 - **Full UI/UX redesign** — "Editorial Intelligence" design system (landing + entire app shell).
+- **Phase 2 — Project URL + primary use case** (branch `feat/phase-2-project-url`): added
+  `project.url` + `project.primaryUseCase` to schema; `validateProjectUrl` (http/https allowlist via
+  WHATWG `URL`) in `convex/lib/utils.ts`; create/update mutations validate + store both; wizard and
+  detail-page edit modal capture/edit them; `fillIntentQueryTemplate` (`convex/lib/constants.ts`) and
+  the brand-visibility prompt (`convex/lib/prompts.ts`) consume them. Unit tests in
+  `tests/unit/utils.test.ts` + `tests/unit/prompts.test.ts`.
 
-**Next up: Phase 2 — Project URL + primary use case.** Branch `feat/phase-2-project-url`. Add
-`project.url` and `project.primaryUseCase` to `convex/schema.ts`, validate + store them (mutations in
-`convex/projects.ts`), surface them in the create-project wizard
-(`src/routes/app/projects/new/+page.svelte`) and make the profile editable, then feed both into prompt
-generation (`convex/lib/prompts.ts`, `convex/lib/constants.ts`). Add unit tests for URL validation and
-prompt substitution.
+**Next up: Phase 3 — Industry prompt library.** Branch `feat/phase-3-prompt-library`. Replace the
+generic fixed prompts in `convex/lib/constants.ts` with a structured library keyed by intent category /
+industry / use case / buyer role / funnel stage; ≥30 relevant prompts per project; deterministic +
+versioned generation; unit tests for prompt count and placeholder replacement. See
+`plans/promptlens-roadmap.md` → "Phase 3".
 
 **Known open decisions (do not silently resolve):**
 - **Pricing is inconsistent** across three sources — code (`convex/lib/constants.ts`: indie $49 /
