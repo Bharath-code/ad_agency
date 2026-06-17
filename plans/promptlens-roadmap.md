@@ -163,6 +163,14 @@ Create a competitor analysis section that groups missed prompts by winning compe
       configured providers, reusing the Phase 4 `convex/lib/consensus.ts` aggregation), so reason
       themes reflect agreement rather than a single provider. *(Carried over from Phase 4.)*
 
+> **Scan cost/latency note (added in Phase 6):** going cross-model multiplies the per-miss LLM call
+> volume. Each `not_mentioned` query now fans the competitor-advantage prompt across **every** configured
+> provider × 3 temperatures (was one provider × 3 via router failover). With both OpenAI + Claude
+> configured that roughly doubles competitor-analysis calls per miss, on top of the already cross-model
+> visibility pass — so a scan's cost and wall-clock time scale ~linearly with provider count. Revisit when
+> setting **Phase 9** scan limits/entitlements and the auto-scan cron budget; consider capping providers or
+> sampling fewer temperatures for competitor analysis if cost becomes a constraint.
+
 ---
 
 ## Phase 7: Recommendation Action Queue
@@ -208,6 +216,10 @@ Generate and send weekly reports for paid users with score change, new competito
 ### What to Build
 
 Finalize plan limits, upgrade prompts, webhook handling, and gated features.
+
+> **Carried-in cost consideration (from Phase 6):** scans are now cross-model for both visibility and
+> competitor reasoning, so per-scan API cost/latency scales with the number of configured providers. Factor
+> this into plan scan caps and the auto-scan cron budget. See the "Scan cost/latency note" under Phase 6.
 
 ### Acceptance Criteria
 
