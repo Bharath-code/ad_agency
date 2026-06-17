@@ -103,6 +103,13 @@ statuses, evidence links, top-3 priority surfacing, and before/after movement af
   **Phase 9 (billing)**; surface for the user's decision.
 - The Convex browser client crashes `vite dev` when `PUBLIC_CONVEX_URL` is empty (it can't parse the
   `placeholder` deployment name). Worth an SSR guard later.
+- **Scan cost scales with provider count (since Phase 6).** A scan now runs cross-model for *both* the
+  visibility verdict (Phase 4) and the competitor "who wins & why" reasoning (Phase 6): every
+  `not_mentioned` query fans the competitor-advantage prompt across **every** configured provider × 3
+  temperatures (no longer one provider via router failover). With OpenAI + Claude both configured, a scan's
+  API cost and wall-clock time roughly scale with the number of providers. Account for this in **Phase 9**
+  scan limits/entitlements and the auto-scan cron budget; if it bites, cap providers or sample fewer
+  temperatures for competitor analysis (`RUN_TEMPERATURES` in `convex/scans.ts`).
 
 ## Design System ("Editorial Intelligence")
 
