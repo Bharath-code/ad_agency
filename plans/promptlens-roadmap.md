@@ -118,6 +118,12 @@ Run prompts across available providers, store model-level results, and calculate
 - [x] Partial provider failures are visible but do not fail the entire scan.
 - [x] Tests cover consensus, low confidence, and provider failure.
 
+### Deferred follow-ups
+
+- Multi-model is currently scoped to the **visibility verdict**. The competitor "who wins & why"
+  reasoning and the positioning-fix generation still run single-provider (router failover, once per
+  missed query). Extending those to cross-model consensus is tracked in **Phase 6** below.
+
 ---
 
 ## Phase 5: Evidence Viewer
@@ -153,6 +159,9 @@ Create a competitor analysis section that groups missed prompts by winning compe
 - [ ] Repeated reasons are grouped and deduplicated.
 - [ ] User can drill into evidence for each reason.
 - [ ] Empty state explains what happens after a scan.
+- [ ] Competitor "who wins & why" reasoning runs cross-model (consensus winner + reasons across
+      configured providers, reusing the Phase 4 `convex/lib/consensus.ts` aggregation), so reason
+      themes reflect agreement rather than a single provider. *(Carried over from Phase 4.)*
 
 ---
 
