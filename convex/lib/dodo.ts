@@ -18,6 +18,8 @@ interface CheckoutSessionResponse {
 }
 
 export interface WebhookEvent {
+	id?: string;
+	event_id?: string;
 	type:
 		| 'subscription.created'
 		| 'subscription.updated'

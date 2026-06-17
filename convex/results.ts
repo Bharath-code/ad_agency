@@ -463,7 +463,10 @@ export const saveResult = mutation({
 export const saveResultInternal = internalMutation({
 	args: resultArgs,
 	handler: async (ctx, args) => {
+		const query = await ctx.db.get(args.queryId);
+		if (!query || query.projectId !== args.projectId) {
+			throw new Error('Intent query does not belong to this project');
+		}
 		return insertResult(ctx, args);
 	},
 });
-

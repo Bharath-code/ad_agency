@@ -45,11 +45,13 @@ http.route({
 			return new Response('Missing email', { status: 400 });
 		}
 
-		// Generate idempotency key from event data
+		// Prefer the provider event ID. Fall back to stable payload fields so retries remain idempotent.
 		const eventId =
-			data?.subscription_id && eventType
+			event.id ??
+			event.event_id ??
+			(data?.subscription_id && eventType
 				? `${eventType}:${data.subscription_id}:${data?.status ?? ''}`
-				: `${eventType}:${customerEmail}:${Date.now()}`;
+				: `${eventType}:${customerEmail}:${data?.current_period_end ?? data?.status ?? 'unknown'}`);
 
 		// Check if already processed (idempotency)
 		const alreadyProcessed = await ctx.runQuery(internal.payments.isWebhookProcessed, {

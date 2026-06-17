@@ -2,7 +2,7 @@
 
 import { v } from 'convex/values';
 import { api, internal } from './_generated/api';
-import { action, internalAction, internalMutation } from './_generated/server';
+import { action, internalAction } from './_generated/server';
 import { requireUserForAction } from './lib/auth';
 import { PLAN_LIMITS } from './lib/dodo';
 import { createClaudeProvider } from './lib/llm/claude';
@@ -43,135 +43,6 @@ function deriveConfidence(
 		return 'medium';
 	}
 	return 'low';
-}
-
-function initializeProviders(): ProviderRouter {
-	const openaiKey = process.env.OPENAI_API_KEY;
-	const claudeKey = process.env.ANTHROPIC_API_KEY;
-
-	if (!openaiKey) {
-		throw new Error('OPENAI_API_KEY environment variable not set');
-	}
-
-	const providers = [createOpenAIProvider(openaiKey)];
-	if (claudeKey) {
-		providers.push(createClaudeProvider(claudeKey));
-	}
-
-	return new ProviderRouter(providers);
-}
-
-interface ScanQueryResult {
-	visibility: ConfidenceResult<BrandVisibilityResponse>;
-	competitorData: { competitorMentioned?: string; competitorReasons?: string[] };
-	fixes: { positioningFix?: string; contentSuggestion?: string; messagingFix?: string };
-}
-
-async function processSingleQuery(
-	router: ProviderRouter,
-	query: { _id: string; query: string },
-	project: { name: string; description: string },
-	competitorNames: string[],
-): Promise<ScanQueryResult | null> {
-	try {
-		const visibility = await analyzeWithConfidence(
-			router,
-			query.query,
-			project.name,
-			project.description,
-		);
-
-		let competitorData: { competitorMentioned?: string; competitorReasons?: string[] } = {};
-		let fixes: { positioningFix?: string; contentSuggestion?: string; messagingFix?: string } = {};
-
-		if (visibility.result.position === 'not_mentioned' && competitorNames.length > 0) {
-			const competitor = await analyzeCompetitorWithConfidence(
-				router,
-				query.query,
-				project.name,
-				competitorNames,
-			);
-
-			competitorData = {
-				competitorMentioned: competitor.result.winner,
-				competitorReasons: competitor.result.reasons,
-			};
-
-			const fixResult = await generateFixesWithConfidence(
-				router,
-				query.query,
-				project.name,
-				project.description,
-				competitor.result.winner,
-				competitor.result.reasons,
-			);
-
-			fixes = fixResult.result;
-		}
-
-		return { visibility, competitorData, fixes };
-	} catch (error) {
-		console.error(`Error processing query "${query.query}":`, error);
-		return null;
-	}
-}
-
-async function runScanCore(
-	ctx: import('./_generated/server').ActionCtx,
-	project: { _id: string; name: string; description: string },
-	competitorNames: string[],
-	queries: { _id: string; query: string }[],
-	scanIdPrefix: string,
-	isPaidUser: boolean,
-): Promise<{
-	scanId: string;
-	resultsCount: number;
-	primaryMentions: number;
-	secondaryMentions: number;
-}> {
-	const router = initializeProviders();
-	const scanId = `${scanIdPrefix}_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
-
-	let resultsCount = 0;
-	let primaryMentions = 0;
-	let secondaryMentions = 0;
-
-	for (const query of queries) {
-		const result = await processSingleQuery(router, query, project, competitorNames);
-
-		if (!result) continue;
-
-		resultsCount++;
-		if (result.visibility.result.position === 'primary') primaryMentions++;
-		if (result.visibility.result.position === 'secondary') secondaryMentions++;
-
-		await ctx.runMutation(api.results.saveResult, {
-			projectId: project._id as any,
-			queryId: query._id as any,
-			scanId,
-			model: router.getPrimaryProviderName(),
-			mentioned: result.visibility.result.mentioned,
-			position: result.visibility.result.position,
-			context: result.visibility.result.context,
-			confidence: result.visibility.result.confidence,
-			rawResponse: JSON.stringify(result),
-			...result.competitorData,
-			...result.fixes,
-		});
-	}
-
-	const visibilityScore = calculateVisibilityScore({
-		primaryMentions,
-		secondaryMentions,
-		totalQueries: queries.length,
-	});
-
-	await ctx.runMutation(api.projects.updateVisibilityScore, {
-		projectId: project._id as any,
-		score: visibilityScore,
-	});
-
-	return { scanId, resultsCount, primaryMentions, secondaryMentions };
 }
 
 async function analyzeWithConfidence(
@@ -493,11 +364,11 @@ export const runScan = action({
 					fixes = fixResult.result;
 				}
 
-				await ctx.runMutation(api.results.saveResult, {
+				await ctx.runMutation(internal.results.saveResultInternal, {
 					projectId: args.projectId,
 					queryId: query._id,
 					scanId,
-					model: router.getPrimaryProviderName(),
+					model: forcedProvider?.name ?? router.getPrimaryProviderName(),
 					mentioned: visibility.result.mentioned,
 					position: visibility.result.position,
 					context: visibility.result.context,
@@ -517,7 +388,7 @@ export const runScan = action({
 				? Math.round(((primaryMentions * 2 + secondaryMentions * 1) / (totalQueries * 2)) * 100)
 				: 0;
 
-		await ctx.runMutation(api.projects.updateVisibilityScore, {
+		await ctx.runMutation(internal.projects.updateVisibilityScoreInternal, {
 			projectId: args.projectId,
 			score: visibilityScore,
 		});

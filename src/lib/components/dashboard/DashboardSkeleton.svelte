@@ -1,6 +1,6 @@
 <script lang="ts">
-    import * as Card from "$lib/components/ui/card/index.js";
-    import Skeleton from "$lib/components/ui/skeleton.svelte";
+import * as Card from '$lib/components/ui/card/index.js';
+import Skeleton from '$lib/components/ui/skeleton.svelte';
 </script>
 
 <div class="dashboard-skeleton">
