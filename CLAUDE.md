@@ -8,19 +8,35 @@ The product is **PromptLens** — an AI recommendation diagnostics platform that
 why AI assistants recommend competitors instead of them, then gives the exact content/positioning
 fixes. (Older names "AI Visibility Intelligence" / "RivalEye" / "AVI" are fully retired.)
 
-Work is tracked against `plans/promptlens-roadmap.md` (10 phases), derived from
+Work is tracked against `plans/promptlens-roadmap.md` (10 phases + status tracker), derived from
 `docs/product_strategy_master_plan.md`. Marketing context: `.agents/product-marketing-context.md`.
-Active work happens on the `feat/promptlens-roadmap` branch.
+
+### Execution workflow — one phase per session
+
+We deliver **one roadmap phase per branch, then start a fresh session** for the next. For each phase:
+
+1. **Branch** `feat/phase-<N>-<slug>` (base on `main` if the prior phase's PR is merged, else on the
+   prior phase's branch).
+2. **Build** to the phase's acceptance criteria; add/extend tests; honor the design system below.
+3. **Verify**: `npm test` + `npm run check` green (0 errors); preview UI locally.
+4. **Push** the branch + open a PR (commit with the `Co-Authored-By` trailer).
+5. **Record**: tick the box in `plans/promptlens-roadmap.md` Status Tracker, update this section's
+   "Next up" pointer, refresh `.remember/remember.md`.
+6. **Reset**: `/clear` and resume at the next phase.
+
+See `plans/promptlens-roadmap.md` → "Execution Protocol" + "Status Tracker" for the authoritative list.
 
 **Completed:**
-- **Phase 1 — Rename to PromptLens:** all user-facing surfaces, metadata, emails, README.
-- **Full UI/UX redesign** (a "Design System" pass spanning the landing page + entire app shell).
+- **Rename to PromptLens** (roadmap Task 1): all user-facing surfaces, metadata, emails, README — on
+  branch `feat/promptlens-roadmap`.
+- **Full UI/UX redesign** — "Editorial Intelligence" design system (landing + entire app shell).
 
-**Next up: Phase 2 — Project URL + primary use case.** Add `project.url` and `project.primaryUseCase`
-to `convex/schema.ts`, validate + store them (mutations in `convex/projects.ts`), surface them in the
-create-project wizard (`src/routes/app/projects/new/+page.svelte`) and make the profile editable, then
-feed both into prompt generation (`convex/lib/prompts.ts`, `convex/lib/constants.ts`). Add unit tests for
-URL validation and prompt substitution.
+**Next up: Phase 2 — Project URL + primary use case.** Branch `feat/phase-2-project-url`. Add
+`project.url` and `project.primaryUseCase` to `convex/schema.ts`, validate + store them (mutations in
+`convex/projects.ts`), surface them in the create-project wizard
+(`src/routes/app/projects/new/+page.svelte`) and make the profile editable, then feed both into prompt
+generation (`convex/lib/prompts.ts`, `convex/lib/constants.ts`). Add unit tests for URL validation and
+prompt substitution.
 
 **Known open decisions (do not silently resolve):**
 - **Pricing is inconsistent** across three sources — code (`convex/lib/constants.ts`: indie $49 /
