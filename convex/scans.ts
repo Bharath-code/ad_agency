@@ -5,6 +5,10 @@ import { api, internal } from './_generated/api';
 import { action, internalAction } from './_generated/server';
 import { requireUserForAction } from './lib/auth';
 import {
+	type CompetitorConsensus,
+	consensusCompetitor,
+} from './lib/competitorConsensus';
+import {
 	type AggregateVisibility,
 	aggregateAcrossModels,
 	consensusFromRuns,
@@ -36,8 +40,8 @@ import { calculateVisibilityScore } from './lib/utils';
 const _CACHE_TTL_SECONDS = 7 * 24 * 60 * 60;
 
 // Each model is sampled at several temperatures; agreement across these runs is
-// the per-model confidence signal.
-const VISIBILITY_RUN_TEMPERATURES = [0.2, 0.3, 0.4];
+// the per-model confidence signal. Shared by visibility and competitor analysis.
+const RUN_TEMPERATURES = [0.2, 0.3, 0.4];
 
 /**
  * Run one model's repeated visibility passes and collapse them into a single
@@ -59,7 +63,7 @@ async function analyzeModelVisibility(
 	);
 
 	const runs = await Promise.all(
-		VISIBILITY_RUN_TEMPERATURES.map(async (temperature) => {
+		RUN_TEMPERATURES.map(async (temperature) => {
 			try {
 				const result = await provider.analyze({
 					systemPrompt: SYSTEM_PROMPT,
@@ -74,7 +78,7 @@ async function analyzeModelVisibility(
 		}),
 	);
 
-	return consensusFromRuns(provider.name, VISIBILITY_RUN_TEMPERATURES.length, runs);
+	return consensusFromRuns(provider.name, RUN_TEMPERATURES.length, runs);
 }
 
 /**
@@ -122,76 +126,46 @@ function toModelResults(aggregate: AggregateVisibility) {
 	}));
 }
 
-async function analyzeCompetitorWithConfidence(
-	router: ProviderRouter,
+/**
+ * Determine which competitor wins a missed query and why, as a consensus across
+ * every selected provider (each sampled at several temperatures). Reusing the
+ * Phase 4 confidence math, this makes the "who wins & why" reasoning reflect
+ * cross-model agreement rather than a single provider. Never throws — an empty
+ * verdict (no successful runs) is returned for the caller to skip.
+ */
+async function analyzeCompetitorAcrossModels(
+	providers: LLMProvider[],
 	queryText: string,
 	productName: string,
 	competitors: string[],
-	forcedProvider?: LLMProvider,
-): Promise<ConfidenceResult<CompetitorAdvantageResponse>> {
-	const runConfigs = [{ temperature: 0.2 }, { temperature: 0.3 }, { temperature: 0.4 }];
+): Promise<CompetitorConsensus> {
+	const plannedRuns = providers.length * RUN_TEMPERATURES.length;
 
-	const runs = await Promise.all(
-		runConfigs.map(async (config) => {
-			try {
-				const analyzeArgs = {
-					systemPrompt: SYSTEM_PROMPT,
-					userPrompt: getCompetitorAdvantagePrompt(queryText, productName, competitors),
-					temperature: config.temperature,
-					maxTokens: LLM_CONFIG.maxTokens,
-				};
-				const result = forcedProvider
-					? await forcedProvider.analyze(analyzeArgs)
-					: await router.analyze(analyzeArgs);
-				return parseJSONResponse<CompetitorAdvantageResponse>(result.content);
-			} catch {
-				return null;
-			}
-		}),
+	const runsPerProvider = await Promise.all(
+		providers.map((provider) =>
+			Promise.all(
+				RUN_TEMPERATURES.map(async (temperature) => {
+					try {
+						const result = await provider.analyze({
+							systemPrompt: SYSTEM_PROMPT,
+							userPrompt: getCompetitorAdvantagePrompt(queryText, productName, competitors),
+							temperature,
+							maxTokens: LLM_CONFIG.maxTokens,
+						});
+						return parseJSONResponse<CompetitorAdvantageResponse>(result.content);
+					} catch {
+						return null;
+					}
+				}),
+			),
+		),
 	);
 
-	const successfulRuns = runs.filter((r): r is CompetitorAdvantageResponse => r !== null);
+	const successfulRuns = runsPerProvider
+		.flat()
+		.filter((r): r is CompetitorAdvantageResponse => r !== null);
 
-	if (successfulRuns.length === 0) {
-		throw new Error('All competitor analysis runs failed');
-	}
-
-	const winnerCounts: Record<string, number> = {};
-	const allReasons: string[] = [];
-
-	for (const run of successfulRuns) {
-		winnerCounts[run.winner] = (winnerCounts[run.winner] || 0) + 1;
-		allReasons.push(...run.reasons);
-	}
-
-	const winnerResult = Object.entries(winnerCounts).sort(([, a], [, b]) => b - a)[0];
-	const winner = winnerResult[0];
-	const winnerVotes = winnerResult[1];
-
-	const reasonCounts: Record<string, number> = {};
-	for (const reason of allReasons) {
-		const normalized = reason.toLowerCase().trim();
-		reasonCounts[normalized] = (reasonCounts[normalized] || 0) + 1;
-	}
-
-	const topReasons = Object.entries(reasonCounts)
-		.sort(([, a], [, b]) => b - a)
-		.slice(0, 3)
-		.map(([reason]) => reason);
-
-	while (topReasons.length < 3) {
-		topReasons.push('insufficient signal');
-	}
-
-	const consensusResult: CompetitorAdvantageResponse = {
-		winner,
-		reasons: topReasons as [string, string, string],
-	};
-
-	const consensusRatio = winnerVotes / successfulRuns.length;
-	const confidence = deriveConfidence(runConfigs.length, successfulRuns.length, consensusRatio);
-
-	return { result: consensusResult, confidence, runs: successfulRuns.length, cached: false };
+	return consensusCompetitor(successfulRuns, plannedRuns);
 }
 
 async function generateFixesWithConfidence(
@@ -373,30 +347,31 @@ export const runScan = action({
 					{};
 
 				if (visibility.position === 'not_mentioned' && competitorNames.length > 0) {
-					const competitor = await analyzeCompetitorWithConfidence(
-						router,
+					const competitor = await analyzeCompetitorAcrossModels(
+						selectedProviders,
 						query.query,
 						project.name,
 						competitorNames,
-						forcedProvider,
 					);
 
-					competitorData = {
-						competitorMentioned: competitor.result.winner,
-						competitorReasons: competitor.result.reasons,
-					};
+					if (competitor.successfulRuns > 0 && competitor.winner) {
+						competitorData = {
+							competitorMentioned: competitor.winner,
+							competitorReasons: competitor.reasons,
+						};
 
-					const fixResult = await generateFixesWithConfidence(
-						router,
-						query.query,
-						project.name,
-						project.description,
-						competitor.result.winner,
-						competitor.result.reasons,
-						forcedProvider,
-					);
+						const fixResult = await generateFixesWithConfidence(
+							router,
+							query.query,
+							project.name,
+							project.description,
+							competitor.winner,
+							competitor.reasons,
+							forcedProvider,
+						);
 
-					fixes = fixResult.result;
+						fixes = fixResult.result;
+					}
 				}
 
 				await ctx.runMutation(internal.results.saveResultInternal, {
@@ -534,28 +509,30 @@ export const runScanForProject = internalAction({
 					{};
 
 				if (visibility.position === 'not_mentioned' && competitorNames.length > 0) {
-					const competitor = await analyzeCompetitorWithConfidence(
-						router,
+					const competitor = await analyzeCompetitorAcrossModels(
+						selectedProviders,
 						query.query,
 						project.name,
 						competitorNames,
 					);
 
-					competitorData = {
-						competitorMentioned: competitor.result.winner,
-						competitorReasons: competitor.result.reasons,
-					};
+					if (competitor.successfulRuns > 0 && competitor.winner) {
+						competitorData = {
+							competitorMentioned: competitor.winner,
+							competitorReasons: competitor.reasons,
+						};
 
-					const fixResult = await generateFixesWithConfidence(
-						router,
-						query.query,
-						project.name,
-						project.description,
-						competitor.result.winner,
-						competitor.result.reasons,
-					);
+						const fixResult = await generateFixesWithConfidence(
+							router,
+							query.query,
+							project.name,
+							project.description,
+							competitor.winner,
+							competitor.reasons,
+						);
 
-					fixes = fixResult.result;
+						fixes = fixResult.result;
+					}
 				}
 
 				await ctx.runMutation(internal.results.saveResultInternal, {
