@@ -23,8 +23,8 @@ so context stays clean. Repeat this loop for every phase:
 - [x] **Phase 0 — Rename to PromptLens** (Task 1) — branch `feat/promptlens-roadmap`
 - [x] **Full UI/UX redesign** — "Editorial Intelligence" design system (landing + entire app shell)
 - [x] **Phase 2 — Project URL + primary use case** — branch `feat/phase-2-project-url`
-- [ ] **Phase 3 — Industry prompt library** ← NEXT
-- [ ] **Phase 4 — Multi-model confidence**
+- [x] **Phase 3 — Industry prompt library** — branch `feat/phase-3-prompt-library`
+- [ ] **Phase 4 — Multi-model confidence** ← NEXT
 - [ ] **Phase 5 — Evidence viewer**
 - [ ] **Phase 6 — Competitor win/loss dashboard**
 - [ ] **Phase 7 — Recommendation action queue**
@@ -91,11 +91,11 @@ Replace generic fixed prompts with a structured prompt library by intent categor
 
 ### Acceptance Criteria
 
-- [ ] Prompt templates include category and intent stage.
-- [ ] New projects receive at least 30 relevant prompts.
-- [ ] Prompt categories cover alternatives, comparisons, best tools, integrations, verticals, pricing, problem-aware, and use-case prompts.
-- [ ] Prompt generation is deterministic and versioned.
-- [ ] Unit tests verify prompt count and placeholder replacement.
+- [x] Prompt templates include category and intent stage.
+- [x] New projects receive at least 30 relevant prompts.
+- [x] Prompt categories cover alternatives, comparisons, best tools, integrations, verticals, pricing, problem-aware, and use-case prompts.
+- [x] Prompt generation is deterministic and versioned.
+- [x] Unit tests verify prompt count and placeholder replacement.
 
 ---
 

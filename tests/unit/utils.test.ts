@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { INTENT_QUERY_TEMPLATES, PRICING_TIERS } from '../../convex/lib/constants';
+import { PRICING_TIERS } from '../../convex/lib/constants';
 import { parseJSONResponse } from '../../convex/lib/llm/types';
 import {
 	calculateVisibilityScore,
@@ -156,43 +156,6 @@ describe('PRICING_TIERS', () => {
 		expect(PRICING_TIERS.free.price).toBe(0);
 		expect(PRICING_TIERS.indie.price).toBe(49);
 		expect(PRICING_TIERS.startup.price).toBe(149);
-	});
-});
-
-describe('INTENT_QUERY_TEMPLATES', () => {
-	it('has 30 queries', () => {
-		expect(INTENT_QUERY_TEMPLATES).toHaveLength(30);
-	});
-
-	it('all queries have category', () => {
-		INTENT_QUERY_TEMPLATES.forEach((q) => {
-			expect(q.category).toBeDefined();
-			expect(q.query).toBeDefined();
-		});
-	});
-
-	it('has 5 categories', () => {
-		const categories = new Set(INTENT_QUERY_TEMPLATES.map((q) => q.category));
-		expect(categories.size).toBe(5);
-	});
-
-	it('queries contain placeholders', () => {
-		const hasIndustry = INTENT_QUERY_TEMPLATES.some((q) => q.query.includes('{INDUSTRY}'));
-		const hasProduct = INTENT_QUERY_TEMPLATES.some((q) => q.query.includes('{PRODUCT}'));
-		const hasCompetitor = INTENT_QUERY_TEMPLATES.some((q) => q.query.includes('{COMPETITOR}'));
-
-		expect(hasIndustry).toBe(true);
-		expect(hasProduct).toBe(true);
-		expect(hasCompetitor).toBe(true);
-	});
-
-	it('each category has 6 queries', () => {
-		const categories = ['best_tools', 'alternatives', 'comparisons', 'worth_it', 'use_cases'];
-
-		categories.forEach((cat) => {
-			const count = INTENT_QUERY_TEMPLATES.filter((q) => q.category === cat).length;
-			expect(count).toBe(6);
-		});
 	});
 });
 
