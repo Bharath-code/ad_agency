@@ -2,6 +2,68 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Product & Roadmap Status
+
+The product is **PromptLens** — an AI recommendation diagnostics platform that shows B2B teams
+why AI assistants recommend competitors instead of them, then gives the exact content/positioning
+fixes. (Older names "AI Visibility Intelligence" / "RivalEye" / "AVI" are fully retired.)
+
+Work is tracked against `plans/promptlens-roadmap.md` (10 phases), derived from
+`docs/product_strategy_master_plan.md`. Marketing context: `.agents/product-marketing-context.md`.
+Active work happens on the `feat/promptlens-roadmap` branch.
+
+**Completed:**
+- **Phase 1 — Rename to PromptLens:** all user-facing surfaces, metadata, emails, README.
+- **Full UI/UX redesign** (a "Design System" pass spanning the landing page + entire app shell).
+
+**Next up: Phase 2 — Project URL + primary use case.** Add `project.url` and `project.primaryUseCase`
+to `convex/schema.ts`, validate + store them (mutations in `convex/projects.ts`), surface them in the
+create-project wizard (`src/routes/app/projects/new/+page.svelte`) and make the profile editable, then
+feed both into prompt generation (`convex/lib/prompts.ts`, `convex/lib/constants.ts`). Add unit tests for
+URL validation and prompt substitution.
+
+**Known open decisions (do not silently resolve):**
+- **Pricing is inconsistent** across three sources — code (`convex/lib/constants.ts`: indie $49 /
+  startup $149), the strategy doc ($99/$249/$799), and the landing page ($79/$199). Reconcile in
+  **Phase 9 (billing)**; surface for the user's decision.
+- The Convex browser client crashes `vite dev` when `PUBLIC_CONVEX_URL` is empty (it can't parse the
+  `placeholder` deployment name). Worth an SSR guard later.
+
+## Design System ("Editorial Intelligence")
+
+Defined in `src/app.css`. Calm, warm, evidence-forward — a "premium intelligence cockpit," not a
+marketing toy. Key rules when building any UI:
+
+- **Palette:** warm paper bg (`#faf9f5`), warm ink (`#1c1b16`), a single **deep-evergreen** accent
+  (`#0c5d4d`). NO neon orange, NO purple/blue AI gradients. Signal language: **evergreen = you win /
+  recommended**, **amber (`--color-signal-miss`) = competitor wins / miss**.
+- **Type:** `Fraunces` (serif display/headings — marketing + section titles), `Instrument Sans` (body),
+  `JetBrains Mono` (data, scores, eyebrow labels). All loaded via the Google Fonts `@import` in `app.css`.
+- **Tokens are the source of truth.** `--color-brand` is evergreen, so `Button variant="brand"` and email
+  templates inherit automatically. A legacy compatibility layer in `app.css` (`:root` block) maps the older
+  in-app vocabulary (`--space-*`, `--text-*`, `--bg-*`, `--border-*`, `--z-sticky`) onto the new system —
+  **prefer the semantic tokens (`--color-foreground`, `--color-primary`, `--color-slate-*`) over hardcoded
+  hexes.** Hardcoded cool-slate hexes clash with the warm palette.
+- **Components own their scoped styles.** Svelte scopes CSS per file; co-locate markup and `<style>`.
+  (The original landing was broken precisely because styles were orphaned in `+page.svelte` away from the
+  child components that held the markup.) Use the `.eyebrow`, `.container`, `.section-spacing`, and
+  `.btn-saas*` global utilities from `app.css`.
+- Lucide icons (`lucide-svelte`); hairline borders; soft low shadows (`--shadow-card`, `--shadow-raised`);
+  divided panels/lists over glossy cards.
+
+## Local Preview Without a Backend
+
+The landing page renders with vite alone, but the Convex client needs a *parseable* URL or it crashes the
+dev server. To preview the authed app with realistic data:
+
+```bash
+VITE_BYPASS_AUTH=true PUBLIC_CONVEX_URL=https://industrious-narwhal-123.convex.cloud npm run dev:frontend
+```
+
+Data pages (dashboard, projects, billing) use a `withTimeout(...) + mock-data` fallback **gated on
+`VITE_BYPASS_AUTH`** so a dead backend degrades to mock data instead of an infinite skeleton (prod
+behavior is unaffected). Follow this same pattern when adding new data-backed pages.
+
 ## Tech Stack
 
 - **Frontend**: SvelteKit with Svelte 5, Tailwind CSS, bits-ui components
