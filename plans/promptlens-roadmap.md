@@ -7,8 +7,11 @@
 Each phase is delivered on its own branch, then we start a fresh session for the next phase
 so context stays clean. Repeat this loop for every phase:
 
-1. **Branch.** Create `feat/phase-<N>-<slug>` (e.g. `feat/phase-2-project-url`). Base it on `main`
-   if the previous phase's PR is merged; otherwise base it on the previous phase's branch.
+1. **Branch.** Create `feat/phase-<N>-<slug>` (e.g. `feat/phase-2-project-url`) **always off the
+   latest `main`** (`git fetch && git checkout -b feat/phase-<N>-<slug> origin/main`). Merge the
+   previous phase's PR into `main` *before* starting the next — never stack a phase branch on another
+   phase's branch, and always open the PR with base `main`. (Stacking + squash-merge nearly stranded
+   Phase 3: chained PR bases left its commit off `main` and produced a conflicting 3-way merge.)
 2. **Build.** Implement the phase against its acceptance criteria. Honor the design system and
    conventions in `CLAUDE.md`. Add/extend tests.
 3. **Verify.** `npm test` + `npm run check` must be green (0 errors). Preview UI changes locally
@@ -24,8 +27,8 @@ so context stays clean. Repeat this loop for every phase:
 - [x] **Full UI/UX redesign** — "Editorial Intelligence" design system (landing + entire app shell)
 - [x] **Phase 2 — Project URL + primary use case** — branch `feat/phase-2-project-url`
 - [x] **Phase 3 — Industry prompt library** — branch `feat/phase-3-prompt-library`
-- [ ] **Phase 4 — Multi-model confidence** ← NEXT
-- [ ] **Phase 5 — Evidence viewer**
+- [x] **Phase 4 — Multi-model confidence** — branch `feat/phase-4-multi-model`
+- [ ] **Phase 5 — Evidence viewer** ← NEXT
 - [ ] **Phase 6 — Competitor win/loss dashboard**
 - [ ] **Phase 7 — Recommendation action queue**
 - [ ] **Phase 8 — Weekly report & retention**
@@ -109,11 +112,11 @@ Run prompts across available providers, store model-level results, and calculate
 
 ### Acceptance Criteria
 
-- [ ] Manual scan supports OpenAI and Claude when configured.
-- [ ] Result records include model, run count, successful runs, consensus ratio, and confidence.
-- [ ] Dashboard shows aggregate score and per-model score.
-- [ ] Partial provider failures are visible but do not fail the entire scan.
-- [ ] Tests cover consensus, low confidence, and provider failure.
+- [x] Manual scan supports OpenAI and Claude when configured.
+- [x] Result records include model, run count, successful runs, consensus ratio, and confidence.
+- [x] Dashboard shows aggregate score and per-model score.
+- [x] Partial provider failures are visible but do not fail the entire scan.
+- [x] Tests cover consensus, low confidence, and provider failure.
 
 ---
 

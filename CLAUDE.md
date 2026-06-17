@@ -15,14 +15,21 @@ Work is tracked against `plans/promptlens-roadmap.md` (10 phases + status tracke
 
 We deliver **one roadmap phase per branch, then start a fresh session** for the next. For each phase:
 
-1. **Branch** `feat/phase-<N>-<slug>` (base on `main` if the prior phase's PR is merged, else on the
-   prior phase's branch).
+1. **Branch** `feat/phase-<N>-<slug>` **always off the latest `main`** (`git fetch && git checkout -b
+   feat/phase-<N>-<slug> origin/main`). Merge the prior phase's PR to `main` *before* starting the next.
 2. **Build** to the phase's acceptance criteria; add/extend tests; honor the design system below.
 3. **Verify**: `npm test` + `npm run check` green (0 errors); preview UI locally.
-4. **Push** the branch + open a PR (commit with the `Co-Authored-By` trailer).
+4. **Push** the branch + open a PR **with base `main`** (commit with the `Co-Authored-By` trailer).
 5. **Record**: tick the box in `plans/promptlens-roadmap.md` Status Tracker, update this section's
    "Next up" pointer, refresh `.remember/remember.md`.
 6. **Reset**: `/clear` and resume at the next phase.
+
+> **Never stack a phase branch on another phase's branch, and never base a PR on anything but `main`.**
+> Phase 3 was nearly stranded because PRs were chained (Phase 3 → Phase 2 branch → roadmap branch →
+> `main`) and `main` was squash-merged, so the 3-way merge against the rewritten history conflicted.
+> One branch off `main`, one PR into `main`, merged before the next phase starts — keeps history linear
+> and every phase reaches `main`. If you ever must rebase a stranded branch, cherry-pick its phase commit
+> onto fresh `origin/main` rather than merging the divergent history.
 
 See `plans/promptlens-roadmap.md` → "Execution Protocol" + "Status Tracker" for the authoritative list.
 
@@ -44,12 +51,23 @@ See `plans/promptlens-roadmap.md` → "Execution Protocol" + "Status Tracker" fo
   industry keyword (`normalizeIndustryKey`); versioned via `PROMPT_LIBRARY_VERSION`. Schema `intentQueries`
   gained optional `stage` + `templateVersion` (no migration). `projects.create` stores them. Tests in
   `tests/unit/promptLibrary.test.ts`.
+- **Phase 4 — Multi-model confidence** (branch `feat/phase-4-multi-model`): a single scan now runs every
+  configured provider (OpenAI + Claude) unless one is forced. Consensus math extracted to a pure,
+  unit-tested module `convex/lib/consensus.ts` (`deriveConfidence`, `consensusFromRuns` per model,
+  `aggregateAcrossModels`). Each `results` row stays **one-per-query** (aggregate verdict) and gained
+  optional `runCount` / `successfulRuns` / `consensusRatio` / `modelResults[]` (per-model breakdown) — all
+  optional, no migration. `scans.ts` (`runScan` + auto-scan `runScanForProject`) builds the aggregate and
+  tolerates a provider failing all runs (recorded as a failed `ModelVisibility`; scan continues if ≥1
+  succeeds); `runScan` returns `models` + `failedModels`. `results.getModelComparison` rewritten to read
+  per-model from the latest single scan's `modelResults` (legacy rows fall back to top-level model).
+  Dashboard scan dropdown defaults to "All Models" and toasts partial-provider failure. Tests:
+  `tests/unit/consensus.test.ts`.
 
-**Next up: Phase 4 — Multi-model confidence.** Branch `feat/phase-4-multi-model`. Run prompts across
-OpenAI + Claude when configured; store model-level results (model, run count, successful runs, consensus
-ratio, confidence); dashboard shows aggregate + per-model score; partial provider failures stay visible
-without failing the whole scan; tests cover consensus, low confidence, and provider failure. See
-`plans/promptlens-roadmap.md` → "Phase 4".
+**Next up: Phase 5 — Evidence viewer.** Branch `feat/phase-5-evidence-viewer`. Add a prompt detail view
+(prompt text, model, raw transcript, parsed recommendation, competitor winner, reasons, confidence, scan
+date); link every top win/miss to evidence; render raw model output as text (never HTML); hide internal
+system prompts/API metadata; polished empty/error states; works on mobile + desktop. See
+`plans/promptlens-roadmap.md` → "Phase 5".
 
 **Known open decisions (do not silently resolve):**
 - **Pricing is inconsistent** across three sources — code (`convex/lib/constants.ts`: indie $49 /

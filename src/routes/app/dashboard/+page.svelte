@@ -96,7 +96,7 @@
 	let competitorData = $state<CompetitorComparison | null>(null);
 	let transcriptData = $state<TranscriptResult[]>([]);
 	let modelComparisonData = $state<ModelComparisonData>([]);
-	let selectedModelToScan = $state<string>("openai");
+	let selectedModelToScan = $state<string>("all");
 	let isScanning = $state(false);
 	let dashboardError = $state<string | null>(null);
 
@@ -325,11 +325,19 @@
 		try {
 			const result = await convex.action(api.scans.runScan, {
 				projectId: selectedProjectId,
-				model: selectedModelToScan,
+				model:
+					selectedModelToScan === "all"
+						? undefined
+						: selectedModelToScan,
 			});
 			toasts.success(
-				`Scan completed! Analyzed ${result.resultsCount} queries.`,
+				`Scan completed! Analyzed ${result.resultsCount} queries across ${result.models.join(", ")}.`,
 			);
+			if (result.failedModels && result.failedModels.length > 0) {
+				toasts.error(
+					`${result.failedModels.join(", ")} returned no results — showing the other models.`,
+				);
+			}
 			await loadDashboard(selectedProjectId);
 		} catch (error) {
 			const message =
@@ -522,6 +530,7 @@
 							class="bg-white border border-slate-200 text-sm rounded-md px-3 py-2 text-slate-700 outline-none focus:ring-2 focus:ring-brand/20 cursor-pointer"
 							bind:value={selectedModelToScan}
 						>
+							<option value="all">All Models</option>
 							<option value="openai">OpenAI</option>
 							<option value="claude">Claude</option>
 						</select>

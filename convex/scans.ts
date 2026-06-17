@@ -4,6 +4,13 @@ import { v } from 'convex/values';
 import { api, internal } from './_generated/api';
 import { action, internalAction } from './_generated/server';
 import { requireUserForAction } from './lib/auth';
+import {
+	type AggregateVisibility,
+	aggregateAcrossModels,
+	consensusFromRuns,
+	deriveConfidence,
+	type ModelVisibility,
+} from './lib/consensus';
 import { PLAN_LIMITS } from './lib/dodo';
 import { createClaudeProvider } from './lib/llm/claude';
 import { createOpenAIProvider } from './lib/llm/openai';
@@ -28,50 +35,38 @@ import { calculateVisibilityScore } from './lib/utils';
 // Cache TTL for LLM responses (7 days) - infrastructure ready for future use
 const _CACHE_TTL_SECONDS = 7 * 24 * 60 * 60;
 
-function deriveConfidence(
-	totalRunsPlanned: number,
-	successfulRuns: number,
-	consensusRatio: number,
-): 'high' | 'medium' | 'low' {
-	const completionRatio = successfulRuns / totalRunsPlanned;
-	const score = completionRatio * consensusRatio;
+// Each model is sampled at several temperatures; agreement across these runs is
+// the per-model confidence signal.
+const VISIBILITY_RUN_TEMPERATURES = [0.2, 0.3, 0.4];
 
-	if (score >= 0.85) {
-		return 'high';
-	}
-	if (score >= 0.6) {
-		return 'medium';
-	}
-	return 'low';
-}
-
-async function analyzeWithConfidence(
-	router: ProviderRouter,
+/**
+ * Run one model's repeated visibility passes and collapse them into a single
+ * per-model verdict. Never throws — a model that fails every run is reported as
+ * a failed `ModelVisibility` so the caller can keep the other models' results.
+ */
+async function analyzeModelVisibility(
+	provider: LLMProvider,
 	queryText: string,
 	productName: string,
 	productDescription: string,
-	forcedProvider?: LLMProvider,
 	productContext?: { url?: string; useCase?: string },
-): Promise<ConfidenceResult<BrandVisibilityResponse>> {
-	const runConfigs = [{ temperature: 0.2 }, { temperature: 0.3 }, { temperature: 0.4 }];
+): Promise<ModelVisibility> {
+	const userPrompt = getBrandVisibilityPrompt(
+		queryText,
+		productName,
+		productDescription,
+		productContext,
+	);
 
 	const runs = await Promise.all(
-		runConfigs.map(async (config) => {
+		VISIBILITY_RUN_TEMPERATURES.map(async (temperature) => {
 			try {
-				const analyzeArgs = {
+				const result = await provider.analyze({
 					systemPrompt: SYSTEM_PROMPT,
-					userPrompt: getBrandVisibilityPrompt(
-						queryText,
-						productName,
-						productDescription,
-						productContext,
-					),
-					temperature: config.temperature,
+					userPrompt,
+					temperature,
 					maxTokens: LLM_CONFIG.maxTokens,
-				};
-				const result = forcedProvider
-					? await forcedProvider.analyze(analyzeArgs)
-					: await router.analyze(analyzeArgs);
+				});
 				return parseJSONResponse<BrandVisibilityResponse>(result.content);
 			} catch {
 				return null;
@@ -79,34 +74,52 @@ async function analyzeWithConfidence(
 		}),
 	);
 
-	const successfulRuns = runs.filter((r): r is BrandVisibilityResponse => r !== null);
+	return consensusFromRuns(provider.name, VISIBILITY_RUN_TEMPERATURES.length, runs);
+}
 
-	if (successfulRuns.length === 0) {
-		throw new Error('All visibility analysis runs failed');
+/**
+ * Analyze brand visibility across every selected provider and aggregate into a
+ * cross-model verdict. Throws only when no provider produced any usable run.
+ */
+async function analyzeVisibilityAcrossModels(
+	providers: LLMProvider[],
+	queryText: string,
+	productName: string,
+	productDescription: string,
+	productContext?: { url?: string; useCase?: string },
+): Promise<AggregateVisibility> {
+	const perModel = await Promise.all(
+		providers.map((provider) =>
+			analyzeModelVisibility(
+				provider,
+				queryText,
+				productName,
+				productDescription,
+				productContext,
+			),
+		),
+	);
+
+	const aggregate = aggregateAcrossModels(perModel);
+
+	if (aggregate.succeededModels.length === 0) {
+		throw new Error('All visibility analysis runs failed across every model');
 	}
 
-	const positionCounts = {
-		primary: successfulRuns.filter((r) => r.position === 'primary').length,
-		secondary: successfulRuns.filter((r) => r.position === 'secondary').length,
-		not_mentioned: successfulRuns.filter((r) => r.position === 'not_mentioned').length,
-	};
+	return aggregate;
+}
 
-	const sortedPositions = Object.entries(positionCounts).sort(([, a], [, b]) => b - a);
-	const consensusPosition = sortedPositions[0][0] as 'primary' | 'secondary' | 'not_mentioned';
-	const consensusVotes = sortedPositions[0][1];
-
-	const mentionedCount = successfulRuns.filter((r) => r.mentioned).length;
-	const consensusRatio = consensusVotes / successfulRuns.length;
-	const confidence = deriveConfidence(runConfigs.length, successfulRuns.length, consensusRatio);
-
-	const consensusResult: BrandVisibilityResponse = {
-		mentioned: mentionedCount > successfulRuns.length / 2,
-		position: consensusPosition,
-		context: successfulRuns[0].context,
-		confidence,
-	};
-
-	return { result: consensusResult, confidence, runs: successfulRuns.length, cached: false };
+/** Flatten an aggregate verdict into the per-model fields stored on a result row. */
+function toModelResults(aggregate: AggregateVisibility) {
+	return aggregate.models.map((m) => ({
+		model: m.model,
+		position: m.position,
+		mentioned: m.mentioned,
+		runCount: m.runCount,
+		successfulRuns: m.successfulRuns,
+		consensusRatio: m.consensusRatio,
+		confidence: m.confidence,
+	}));
 }
 
 async function analyzeCompetitorWithConfidence(
@@ -270,7 +283,14 @@ export const runScan = action({
 	handler: async (
 		ctx,
 		args,
-	): Promise<{ scanId: string; resultsCount: number; modelUsed: string; totalRuns: number }> => {
+	): Promise<{
+		scanId: string;
+		resultsCount: number;
+		modelUsed: string;
+		totalRuns: number;
+		models: string[];
+		failedModels: string[];
+	}> => {
 		const user = await requireUserForAction(ctx);
 		const plan = user.plan as keyof typeof PLAN_LIMITS;
 		const limit = PLAN_LIMITS[plan].scans;
@@ -321,36 +341,44 @@ export const runScan = action({
 		let secondaryMentions = 0;
 		let totalRuns = 0;
 
-		const forcedProvider = args.model ? router.getProviderByName(args.model) : undefined;
+		// A specific model forces a single provider; otherwise run every configured
+		// provider in this scan so the dashboard can compare them side by side.
+		const forcedProvider =
+			args.model && args.model !== 'all' ? router.getProviderByName(args.model) : undefined;
+		const selectedProviders = forcedProvider ? [forcedProvider] : router.getAllProviders();
+		const modelSuccessCounts = new Map<string, number>();
 
 		for (const query of queries) {
 			try {
-				const visibility = await analyzeWithConfidence(
-					router,
+				const visibility = await analyzeVisibilityAcrossModels(
+					selectedProviders,
 					query.query,
 					project.name,
 					project.description,
-					forcedProvider,
-					{ url: project.url, useCase: project.primaryUseCase }
+					{ url: project.url, useCase: project.primaryUseCase },
 				);
 
-				totalRuns += visibility.runs;
+				for (const model of visibility.succeededModels) {
+					modelSuccessCounts.set(model, (modelSuccessCounts.get(model) ?? 0) + 1);
+				}
+
+				totalRuns += visibility.successfulRuns;
 				resultsCount++;
 
-				if (visibility.result.position === 'primary') primaryMentions++;
-				if (visibility.result.position === 'secondary') secondaryMentions++;
+				if (visibility.position === 'primary') primaryMentions++;
+				if (visibility.position === 'secondary') secondaryMentions++;
 
 				let competitorData: { competitorMentioned?: string; competitorReasons?: string[] } = {};
 				let fixes: { positioningFix?: string; contentSuggestion?: string; messagingFix?: string } =
 					{};
 
-				if (visibility.result.position === 'not_mentioned' && competitorNames.length > 0) {
+				if (visibility.position === 'not_mentioned' && competitorNames.length > 0) {
 					const competitor = await analyzeCompetitorWithConfidence(
 						router,
 						query.query,
 						project.name,
 						competitorNames,
-						forcedProvider
+						forcedProvider,
 					);
 
 					competitorData = {
@@ -365,7 +393,7 @@ export const runScan = action({
 						project.description,
 						competitor.result.winner,
 						competitor.result.reasons,
-						forcedProvider
+						forcedProvider,
 					);
 
 					fixes = fixResult.result;
@@ -375,11 +403,18 @@ export const runScan = action({
 					projectId: args.projectId,
 					queryId: query._id,
 					scanId,
-					model: forcedProvider?.name ?? router.getPrimaryProviderName(),
-					mentioned: visibility.result.mentioned,
-					position: visibility.result.position,
-					context: visibility.result.context,
-					confidence: visibility.result.confidence,
+					model:
+						visibility.succeededModels.length > 1
+							? 'consensus'
+							: (visibility.succeededModels[0] ?? router.getPrimaryProviderName()),
+					mentioned: visibility.mentioned,
+					position: visibility.position,
+					context: visibility.context,
+					confidence: visibility.confidence,
+					runCount: visibility.runCount,
+					successfulRuns: visibility.successfulRuns,
+					consensusRatio: visibility.consensusRatio,
+					modelResults: toModelResults(visibility),
 					rawResponse: JSON.stringify({ visibility, competitor: competitorData, fixes }),
 					...competitorData,
 					...fixes,
@@ -388,6 +423,12 @@ export const runScan = action({
 				console.error(`Error processing query "${query.query}":`, error);
 			}
 		}
+
+		// A provider that never produced a usable run anywhere in the scan failed;
+		// surface it so the UI can show partial results instead of hiding the gap.
+		const failedModels = selectedProviders
+			.map((p) => p.name)
+			.filter((name) => (modelSuccessCounts.get(name) ?? 0) === 0);
 
 		const totalQueries = queries.length;
 		const visibilityScore =
@@ -402,11 +443,15 @@ export const runScan = action({
 
 		await ctx.runMutation(internal.users.incrementScansUsed, { userId: user._id });
 
+		const ranModels = selectedProviders.map((p) => p.name);
+
 		return {
 			scanId,
 			resultsCount,
-			modelUsed: router.getPrimaryProviderName(),
+			modelUsed: ranModels.join(', '),
 			totalRuns,
+			models: ranModels,
+			failedModels,
 		};
 	},
 });
@@ -463,6 +508,7 @@ export const runScanForProject = internalAction({
 		}
 
 		const router = new ProviderRouter(providers);
+		const selectedProviders = router.getAllProviders();
 
 		let resultsCount = 0;
 		let primaryMentions = 0;
@@ -470,25 +516,24 @@ export const runScanForProject = internalAction({
 
 		for (const query of queries) {
 			try {
-				const visibility = await analyzeWithConfidence(
-					router,
+				const visibility = await analyzeVisibilityAcrossModels(
+					selectedProviders,
 					query.query,
 					project.name,
 					project.description,
-					undefined,
-					{ url: project.url, useCase: project.primaryUseCase }
+					{ url: project.url, useCase: project.primaryUseCase },
 				);
 
 				resultsCount++;
 
-				if (visibility.result.position === 'primary') primaryMentions++;
-				if (visibility.result.position === 'secondary') secondaryMentions++;
+				if (visibility.position === 'primary') primaryMentions++;
+				if (visibility.position === 'secondary') secondaryMentions++;
 
 				let competitorData: { competitorMentioned?: string; competitorReasons?: string[] } = {};
 				let fixes: { positioningFix?: string; contentSuggestion?: string; messagingFix?: string } =
 					{};
 
-				if (visibility.result.position === 'not_mentioned' && competitorNames.length > 0) {
+				if (visibility.position === 'not_mentioned' && competitorNames.length > 0) {
 					const competitor = await analyzeCompetitorWithConfidence(
 						router,
 						query.query,
@@ -517,11 +562,18 @@ export const runScanForProject = internalAction({
 					projectId: args.projectId,
 					queryId: query._id,
 					scanId,
-					model: router.getPrimaryProviderName(),
-					mentioned: visibility.result.mentioned,
-					position: visibility.result.position,
-					context: visibility.result.context,
-					confidence: visibility.result.confidence,
+					model:
+						visibility.succeededModels.length > 1
+							? 'consensus'
+							: (visibility.succeededModels[0] ?? router.getPrimaryProviderName()),
+					mentioned: visibility.mentioned,
+					position: visibility.position,
+					context: visibility.context,
+					confidence: visibility.confidence,
+					runCount: visibility.runCount,
+					successfulRuns: visibility.successfulRuns,
+					consensusRatio: visibility.consensusRatio,
+					modelResults: toModelResults(visibility),
 					rawResponse: JSON.stringify({ visibility, competitor: competitorData, fixes }),
 					...competitorData,
 					...fixes,
