@@ -34,11 +34,13 @@ export default defineSchema({
 		url: v.optional(v.string()),
 	}).index('by_project', ['projectId']),
 
-	// Intent Queries table (30 fixed queries per project)
+	// Intent Queries table (generated buyer-intent prompts per project)
 	intentQueries: defineTable({
 		projectId: v.id('projects'),
 		query: v.string(),
-		category: v.string(), // 'best_tools', 'alternatives', 'comparisons', etc.
+		category: v.string(), // 'best_tools', 'alternatives', 'comparisons', 'integrations', etc.
+		stage: v.optional(v.string()), // funnel stage: 'awareness' | 'consideration' | 'decision'
+		templateVersion: v.optional(v.string()), // PROMPT_LIBRARY_VERSION used at generation
 		isActive: v.boolean(),
 	}).index('by_project', ['projectId']),
 

@@ -36,12 +36,20 @@ See `plans/promptlens-roadmap.md` → "Execution Protocol" + "Status Tracker" fo
   detail-page edit modal capture/edit them; `fillIntentQueryTemplate` (`convex/lib/constants.ts`) and
   the brand-visibility prompt (`convex/lib/prompts.ts`) consume them. Unit tests in
   `tests/unit/utils.test.ts` + `tests/unit/prompts.test.ts`.
+- **Phase 3 — Industry prompt library** (branch `feat/phase-3-prompt-library`): replaced the flat
+  `INTENT_QUERY_TEMPLATES` in `convex/lib/constants.ts` with a structured `PROMPT_LIBRARY` (8 categories —
+  best_tools/alternatives/comparisons/integrations/verticals/pricing/problem_aware/use_cases — each
+  template tagged with `stage` (awareness/consideration/decision) + `buyerRole`). `generateIntentQueries`
+  is deterministic (stable order + dedup); `INDUSTRY_PROMPT_PACKS` appends vertical prompts by normalized
+  industry keyword (`normalizeIndustryKey`); versioned via `PROMPT_LIBRARY_VERSION`. Schema `intentQueries`
+  gained optional `stage` + `templateVersion` (no migration). `projects.create` stores them. Tests in
+  `tests/unit/promptLibrary.test.ts`.
 
-**Next up: Phase 3 — Industry prompt library.** Branch `feat/phase-3-prompt-library`. Replace the
-generic fixed prompts in `convex/lib/constants.ts` with a structured library keyed by intent category /
-industry / use case / buyer role / funnel stage; ≥30 relevant prompts per project; deterministic +
-versioned generation; unit tests for prompt count and placeholder replacement. See
-`plans/promptlens-roadmap.md` → "Phase 3".
+**Next up: Phase 4 — Multi-model confidence.** Branch `feat/phase-4-multi-model`. Run prompts across
+OpenAI + Claude when configured; store model-level results (model, run count, successful runs, consensus
+ratio, confidence); dashboard shows aggregate + per-model score; partial provider failures stay visible
+without failing the whole scan; tests cover consensus, low confidence, and provider failure. See
+`plans/promptlens-roadmap.md` → "Phase 4".
 
 **Known open decisions (do not silently resolve):**
 - **Pricing is inconsistent** across three sources — code (`convex/lib/constants.ts`: indie $49 /

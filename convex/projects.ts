@@ -1,7 +1,7 @@
 import { v } from 'convex/values';
 import { internalMutation, internalQuery, mutation, query } from './_generated/server';
 import { requireProjectOwner, requireUser } from './lib/auth';
-import { fillIntentQueryTemplate, INTENT_QUERY_TEMPLATES } from './lib/constants';
+import { generateIntentQueries, PROMPT_LIBRARY_VERSION } from './lib/constants';
 import type { PLAN_LIMITS } from './lib/dodo';
 import { validateProjectUrl } from './lib/utils';
 
@@ -146,20 +146,22 @@ export const create = mutation({
 			});
 		}
 
-		// Seed 30 intent queries from templates
-		for (const template of INTENT_QUERY_TEMPLATES) {
-			// Replace placeholders with actual values (use case falls back to industry)
-			const query = fillIntentQueryTemplate(template.query, {
-				product: args.name,
-				industry: args.industry,
-				useCase: useCase ?? args.industry,
-				competitor: primaryCompetitorName,
-			});
+		// Seed intent queries deterministically from the industry prompt library
+		// (use case falls back to industry when not provided).
+		const intentQueries = generateIntentQueries({
+			product: args.name,
+			industry: args.industry,
+			useCase: useCase ?? args.industry,
+			competitor: primaryCompetitorName,
+		});
 
+		for (const intentQuery of intentQueries) {
 			await ctx.db.insert('intentQueries', {
 				projectId,
-				query,
-				category: template.category,
+				query: intentQuery.query,
+				category: intentQuery.category,
+				stage: intentQuery.stage,
+				templateVersion: PROMPT_LIBRARY_VERSION,
 				isActive: true,
 			});
 		}
