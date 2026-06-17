@@ -16,12 +16,20 @@ import Input from '$lib/components/ui/input.svelte';
 import Label from '$lib/components/ui/label.svelte';
 import Modal from '$lib/components/ui/modal.svelte';
 import Spinner from '$lib/components/ui/spinner.svelte';
+import { validateProjectUrl } from '$convex/lib/utils';
 import { convex, convexUser } from '$lib/stores/auth';
 import { toasts } from '$lib/stores/toast';
 
 type ProjectView = Pick<
 	Doc<'projects'>,
-	'_id' | 'name' | 'industry' | 'createdAt' | 'description' | 'lastScanAt'
+	| '_id'
+	| 'name'
+	| 'industry'
+	| 'createdAt'
+	| 'description'
+	| 'lastScanAt'
+	| 'url'
+	| 'primaryUseCase'
 >;
 
 type CompetitorView = Pick<Doc<'competitors'>, '_id' | 'name' | 'url'> & {
@@ -61,6 +69,21 @@ let showAddCompetitor = $state(false);
 let newCompetitorName = $state('');
 let newCompetitorUrl = $state('');
 let showDeleteConfirm = $state(false);
+
+// Edit profile modal
+let showEditProfile = $state(false);
+let editName = $state('');
+let editDescription = $state('');
+let editIndustry = $state('');
+let editUrl = $state('');
+let editUseCase = $state('');
+let isSavingProfile = $state(false);
+
+const editUrlError = $derived(
+	editUrl.trim().length > 0 && !validateProjectUrl(editUrl).valid
+		? 'Enter a valid website URL (e.g. https://acme.com)'
+		: null,
+);
 
 const projectId = $derived($page.params.id as Id<'projects'>);
 
@@ -200,6 +223,46 @@ async function removeCompetitor(competitorId: string) {
 	}
 }
 
+function openEditProfile() {
+	if (!project) return;
+	editName = project.name;
+	editDescription = project.description;
+	editIndustry = project.industry;
+	editUrl = project.url ?? '';
+	editUseCase = project.primaryUseCase ?? '';
+	showEditProfile = true;
+}
+
+async function saveProfile() {
+	if (!project || editUrlError) return;
+	isSavingProfile = true;
+	try {
+		await convex.mutation(api.projects.update, {
+			projectId,
+			name: editName.trim(),
+			description: editDescription.trim(),
+			industry: editIndustry.trim(),
+			url: editUrl.trim(),
+			primaryUseCase: editUseCase.trim(),
+		});
+		project = {
+			...project,
+			name: editName.trim(),
+			description: editDescription.trim(),
+			industry: editIndustry.trim(),
+			url: editUrl.trim() || undefined,
+			primaryUseCase: editUseCase.trim() || undefined,
+		};
+		showEditProfile = false;
+		toasts.success('Project profile updated.');
+	} catch (error) {
+		const message = error instanceof Error ? error.message : 'Failed to update project';
+		toasts.error(message);
+	} finally {
+		isSavingProfile = false;
+	}
+}
+
 async function deleteProject() {
 	try {
 		await convex.mutation(api.projects.remove, { projectId });
@@ -239,6 +302,13 @@ function formatDate(timestamp: number): string {
                 </p>
             </div>
             <div class="header-actions">
+                <button
+                    class="btn-saas btn-saas-secondary"
+                    onclick={openEditProfile}
+                >
+                    <Settings size={16} />
+                    Edit profile
+                </button>
                 <button
                     class="btn-saas btn-saas-secondary"
                     onclick={() => (showDeleteConfirm = true)}
@@ -295,6 +365,24 @@ function formatDate(timestamp: number): string {
                 <div class="project-info">
                     <h3>About</h3>
                     <p>{project.description}</p>
+                    {#if project.url}
+                        <dl class="profile-meta">
+                            <dt>Website</dt>
+                            <dd>
+                                <a
+                                    href={project.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer">{project.url}</a
+                                >
+                            </dd>
+                        </dl>
+                    {/if}
+                    {#if project.primaryUseCase}
+                        <dl class="profile-meta">
+                            <dt>Primary use case</dt>
+                            <dd>{project.primaryUseCase}</dd>
+                        </dl>
+                    {/if}
                 </div>
             </aside>
         </div>
@@ -344,6 +432,75 @@ function formatDate(timestamp: number): string {
             </button>
             <button type="submit" class="btn-saas btn-saas-primary">
                 Add Competitor
+            </button>
+        </div>
+    </form>
+</Modal>
+
+<!-- Edit Profile Modal -->
+<Modal
+    open={showEditProfile}
+    onclose={() => (showEditProfile = false)}
+    title="Edit Project Profile"
+>
+    <form
+        onsubmit={(e) => {
+            e.preventDefault();
+            saveProfile();
+        }}
+        class="add-form"
+    >
+        <div class="space-y-2">
+            <Label for="edit-name">Product Name</Label>
+            <Input id="edit-name" bind:value={editName} required />
+        </div>
+        <div class="space-y-2">
+            <Label for="edit-industry">Category / Industry</Label>
+            <Input id="edit-industry" bind:value={editIndustry} required />
+        </div>
+        <div class="space-y-2">
+            <Label for="edit-description">One-sentence Pitch</Label>
+            <Input id="edit-description" bind:value={editDescription} required />
+        </div>
+        <div class="space-y-2">
+            <Label for="edit-url">Website (optional)</Label>
+            <Input
+                id="edit-url"
+                type="url"
+                placeholder="https://acme.com"
+                bind:value={editUrl}
+            />
+            {#if editUrlError}
+                <p class="field-error">{editUrlError}</p>
+            {/if}
+        </div>
+        <div class="space-y-2">
+            <Label for="edit-use-case">Primary use case (optional)</Label>
+            <Input
+                id="edit-use-case"
+                placeholder="e.g. automating code reviews"
+                bind:value={editUseCase}
+            />
+        </div>
+        <div class="modal-actions">
+            <button
+                type="button"
+                class="btn-saas btn-saas-secondary"
+                onclick={() => (showEditProfile = false)}
+            >
+                Cancel
+            </button>
+            <button
+                type="submit"
+                class="btn-saas btn-saas-primary"
+                disabled={isSavingProfile || editUrlError !== null}
+            >
+                {#if isSavingProfile}
+                    <Spinner size="sm" class="mr-2" />
+                    Saving...
+                {:else}
+                    Save Changes
+                {/if}
             </button>
         </div>
     </form>
@@ -488,6 +645,42 @@ function formatDate(timestamp: number): string {
         font-size: var(--text-sm);
         line-height: 1.6;
         margin: 0;
+    }
+
+    .profile-meta {
+        margin: var(--space-4) 0 0;
+        padding-top: var(--space-4);
+        border-top: var(--border-soft);
+    }
+
+    .profile-meta dt {
+        font-size: var(--text-xs);
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text-muted);
+        margin-bottom: var(--space-1);
+    }
+
+    .profile-meta dd {
+        margin: 0;
+        font-size: var(--text-sm);
+        color: var(--text-secondary);
+        word-break: break-word;
+    }
+
+    .profile-meta dd a {
+        color: var(--color-brand);
+        text-decoration: none;
+    }
+
+    .profile-meta dd a:hover {
+        text-decoration: underline;
+    }
+
+    .field-error {
+        color: #dc2626;
+        font-size: var(--text-sm);
     }
 
     .add-form {

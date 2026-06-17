@@ -29,8 +29,8 @@ onDestroy(() => {
     <div class="login-card">
         <header class="login-header">
             <span class="logo">📊</span>
-            <h1>AI Visibility Intelligence</h1>
-            <p>Track your brand's visibility in AI assistant responses</p>
+            <h1>PromptLens</h1>
+            <p>See why AI assistants recommend competitors instead of you</p>
         </header>
 
         {#if !mounted || $isLoading}

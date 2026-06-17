@@ -110,8 +110,8 @@ function formatJSON(jsonString?: string) {
 
     .badge {
         font-size: 10px;
-        background: #dbeafe;
-        color: #1e40af;
+        background: var(--color-accent);
+        color: var(--color-primary);
         padding: 2px 6px;
         border-radius: 4px;
         text-transform: uppercase;

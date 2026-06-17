@@ -2,6 +2,89 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Product & Roadmap Status
+
+The product is **PromptLens** — an AI recommendation diagnostics platform that shows B2B teams
+why AI assistants recommend competitors instead of them, then gives the exact content/positioning
+fixes. (Older names "AI Visibility Intelligence" / "RivalEye" / "AVI" are fully retired.)
+
+Work is tracked against `plans/promptlens-roadmap.md` (10 phases + status tracker), derived from
+`docs/product_strategy_master_plan.md`. Marketing context: `.agents/product-marketing-context.md`.
+
+### Execution workflow — one phase per session
+
+We deliver **one roadmap phase per branch, then start a fresh session** for the next. For each phase:
+
+1. **Branch** `feat/phase-<N>-<slug>` (base on `main` if the prior phase's PR is merged, else on the
+   prior phase's branch).
+2. **Build** to the phase's acceptance criteria; add/extend tests; honor the design system below.
+3. **Verify**: `npm test` + `npm run check` green (0 errors); preview UI locally.
+4. **Push** the branch + open a PR (commit with the `Co-Authored-By` trailer).
+5. **Record**: tick the box in `plans/promptlens-roadmap.md` Status Tracker, update this section's
+   "Next up" pointer, refresh `.remember/remember.md`.
+6. **Reset**: `/clear` and resume at the next phase.
+
+See `plans/promptlens-roadmap.md` → "Execution Protocol" + "Status Tracker" for the authoritative list.
+
+**Completed:**
+- **Rename to PromptLens** (roadmap Task 1): all user-facing surfaces, metadata, emails, README — on
+  branch `feat/promptlens-roadmap`.
+- **Full UI/UX redesign** — "Editorial Intelligence" design system (landing + entire app shell).
+- **Phase 2 — Project URL + primary use case** (branch `feat/phase-2-project-url`): added
+  `project.url` + `project.primaryUseCase` to schema; `validateProjectUrl` (http/https allowlist via
+  WHATWG `URL`) in `convex/lib/utils.ts`; create/update mutations validate + store both; wizard and
+  detail-page edit modal capture/edit them; `fillIntentQueryTemplate` (`convex/lib/constants.ts`) and
+  the brand-visibility prompt (`convex/lib/prompts.ts`) consume them. Unit tests in
+  `tests/unit/utils.test.ts` + `tests/unit/prompts.test.ts`.
+
+**Next up: Phase 3 — Industry prompt library.** Branch `feat/phase-3-prompt-library`. Replace the
+generic fixed prompts in `convex/lib/constants.ts` with a structured library keyed by intent category /
+industry / use case / buyer role / funnel stage; ≥30 relevant prompts per project; deterministic +
+versioned generation; unit tests for prompt count and placeholder replacement. See
+`plans/promptlens-roadmap.md` → "Phase 3".
+
+**Known open decisions (do not silently resolve):**
+- **Pricing is inconsistent** across three sources — code (`convex/lib/constants.ts`: indie $49 /
+  startup $149), the strategy doc ($99/$249/$799), and the landing page ($79/$199). Reconcile in
+  **Phase 9 (billing)**; surface for the user's decision.
+- The Convex browser client crashes `vite dev` when `PUBLIC_CONVEX_URL` is empty (it can't parse the
+  `placeholder` deployment name). Worth an SSR guard later.
+
+## Design System ("Editorial Intelligence")
+
+Defined in `src/app.css`. Calm, warm, evidence-forward — a "premium intelligence cockpit," not a
+marketing toy. Key rules when building any UI:
+
+- **Palette:** warm paper bg (`#faf9f5`), warm ink (`#1c1b16`), a single **deep-evergreen** accent
+  (`#0c5d4d`). NO neon orange, NO purple/blue AI gradients. Signal language: **evergreen = you win /
+  recommended**, **amber (`--color-signal-miss`) = competitor wins / miss**.
+- **Type:** `Fraunces` (serif display/headings — marketing + section titles), `Instrument Sans` (body),
+  `JetBrains Mono` (data, scores, eyebrow labels). All loaded via the Google Fonts `@import` in `app.css`.
+- **Tokens are the source of truth.** `--color-brand` is evergreen, so `Button variant="brand"` and email
+  templates inherit automatically. A legacy compatibility layer in `app.css` (`:root` block) maps the older
+  in-app vocabulary (`--space-*`, `--text-*`, `--bg-*`, `--border-*`, `--z-sticky`) onto the new system —
+  **prefer the semantic tokens (`--color-foreground`, `--color-primary`, `--color-slate-*`) over hardcoded
+  hexes.** Hardcoded cool-slate hexes clash with the warm palette.
+- **Components own their scoped styles.** Svelte scopes CSS per file; co-locate markup and `<style>`.
+  (The original landing was broken precisely because styles were orphaned in `+page.svelte` away from the
+  child components that held the markup.) Use the `.eyebrow`, `.container`, `.section-spacing`, and
+  `.btn-saas*` global utilities from `app.css`.
+- Lucide icons (`lucide-svelte`); hairline borders; soft low shadows (`--shadow-card`, `--shadow-raised`);
+  divided panels/lists over glossy cards.
+
+## Local Preview Without a Backend
+
+The landing page renders with vite alone, but the Convex client needs a *parseable* URL or it crashes the
+dev server. To preview the authed app with realistic data:
+
+```bash
+VITE_BYPASS_AUTH=true PUBLIC_CONVEX_URL=https://industrious-narwhal-123.convex.cloud npm run dev:frontend
+```
+
+Data pages (dashboard, projects, billing) use a `withTimeout(...) + mock-data` fallback **gated on
+`VITE_BYPASS_AUTH`** so a dead backend degrades to mock data instead of an infinite skeleton (prod
+behavior is unaffected). Follow this same pattern when adding new data-backed pages.
+
 ## Tech Stack
 
 - **Frontend**: SvelteKit with Svelte 5, Tailwind CSS, bits-ui components

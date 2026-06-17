@@ -1,8 +1,11 @@
 import { v } from 'convex/values';
 import { internalMutation, internalQuery, mutation, query } from './_generated/server';
 import { requireProjectOwner, requireUser } from './lib/auth';
-import { INTENT_QUERY_TEMPLATES } from './lib/constants';
+import { fillIntentQueryTemplate, INTENT_QUERY_TEMPLATES } from './lib/constants';
 import type { PLAN_LIMITS } from './lib/dodo';
+import { validateProjectUrl } from './lib/utils';
+
+const MAX_USE_CASE_LENGTH = 200;
 
 /**
  * Project Queries
@@ -57,6 +60,8 @@ export const create = mutation({
 		name: v.string(),
 		description: v.string(),
 		industry: v.string(),
+		url: v.optional(v.string()),
+		primaryUseCase: v.optional(v.string()),
 		competitors: v.array(
 			v.object({
 				name: v.string(),
@@ -81,6 +86,23 @@ export const create = mutation({
 		for (const comp of args.competitors) {
 			if (comp.name.length < 2 || comp.name.length > 100) {
 				throw new Error('Each competitor name must be between 2 and 100 characters');
+			}
+		}
+
+		let normalizedUrl: string | undefined;
+		if (args.url && args.url.trim().length > 0) {
+			const urlResult = validateProjectUrl(args.url);
+			if (!urlResult.valid) {
+				throw new Error(urlResult.error ?? 'Invalid URL');
+			}
+			normalizedUrl = urlResult.url;
+		}
+
+		let useCase: string | undefined;
+		if (args.primaryUseCase && args.primaryUseCase.trim().length > 0) {
+			useCase = args.primaryUseCase.trim();
+			if (useCase.length > MAX_USE_CASE_LENGTH) {
+				throw new Error(`Primary use case must be ${MAX_USE_CASE_LENGTH} characters or fewer`);
 			}
 		}
 
@@ -110,6 +132,8 @@ export const create = mutation({
 			name: args.name,
 			description: args.description,
 			industry: args.industry,
+			url: normalizedUrl,
+			primaryUseCase: useCase,
 			createdAt: Date.now(),
 		});
 
@@ -124,12 +148,13 @@ export const create = mutation({
 
 		// Seed 30 intent queries from templates
 		for (const template of INTENT_QUERY_TEMPLATES) {
-			// Replace placeholders with actual values
-			const query = template.query
-				.replace('{PRODUCT}', args.name)
-				.replace('{INDUSTRY}', args.industry)
-				.replace('{USE_CASE}', args.industry)
-				.replace('{COMPETITOR}', primaryCompetitorName);
+			// Replace placeholders with actual values (use case falls back to industry)
+			const query = fillIntentQueryTemplate(template.query, {
+				product: args.name,
+				industry: args.industry,
+				useCase: useCase ?? args.industry,
+				competitor: primaryCompetitorName,
+			});
 
 			await ctx.db.insert('intentQueries', {
 				projectId,
@@ -149,14 +174,40 @@ export const update = mutation({
 		name: v.optional(v.string()),
 		description: v.optional(v.string()),
 		industry: v.optional(v.string()),
+		url: v.optional(v.string()),
+		primaryUseCase: v.optional(v.string()),
 	},
 	handler: async (ctx, args) => {
-		const { projectId, ...updates } = args;
+		const { projectId, url, primaryUseCase, ...rest } = args;
 		await requireProjectOwner(ctx, projectId);
 
-		// Filter out undefined values
+		const updates: Record<string, string | undefined> = { ...rest };
+
+		// URL: empty string clears it; otherwise validate + normalize.
+		if (url !== undefined) {
+			const trimmed = url.trim();
+			if (trimmed.length === 0) {
+				updates.url = undefined;
+			} else {
+				const urlResult = validateProjectUrl(url);
+				if (!urlResult.valid) {
+					throw new Error(urlResult.error ?? 'Invalid URL');
+				}
+				updates.url = urlResult.url;
+			}
+		}
+
+		if (primaryUseCase !== undefined) {
+			const trimmed = primaryUseCase.trim();
+			if (trimmed.length > MAX_USE_CASE_LENGTH) {
+				throw new Error(`Primary use case must be ${MAX_USE_CASE_LENGTH} characters or fewer`);
+			}
+			updates.primaryUseCase = trimmed.length === 0 ? undefined : trimmed;
+		}
+
+		// Filter out keys not explicitly provided (undefined from spread of absent args).
 		const filteredUpdates = Object.fromEntries(
-			Object.entries(updates).filter(([, v]) => v !== undefined),
+			Object.entries(updates).filter(([key]) => args[key as keyof typeof args] !== undefined),
 		);
 
 		if (Object.keys(filteredUpdates).length > 0) {

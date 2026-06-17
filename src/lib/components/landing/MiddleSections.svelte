@@ -1,323 +1,368 @@
 <script lang="ts">
-    import {
-        ArrowRight,
-        Check,
-        Eye,
-        FileText,
-        TrendingUp,
-        Users,
-    } from "lucide-svelte";
-    import { Badge } from "$lib/components/ui/badge/index.js";
-    import * as Button from "$lib/components/ui/button/index.js";
-    import * as Card from "$lib/components/ui/card/index.js";
-    import ScrollReveal from "$lib/components/ui/scroll-reveal.svelte";
+import { FileSearch, GitCompareArrows, ListChecks } from 'lucide-svelte';
 
-    const aiModels = [
-        "ChatGPT",
-        "Claude",
-        "Gemini",
-        "Perplexity",
-        "Copilot",
-        "Grok",
-    ];
+const assistants = ['ChatGPT', 'Claude', 'Gemini', 'Perplexity', 'Copilot', 'Grok'];
 
-    const painPoints = [
-        {
-            icon: Eye,
-            title: "Invisible distribution",
-            desc: "AI assistants are a new referral source, but you can't see how they describe you.",
-        },
-        {
-            icon: Users,
-            title: "Losing high-intent traffic",
-            desc: "When buyers ask for the best tool, competitors get named first.",
-        },
-        {
-            icon: TrendingUp,
-            title: "No clear fix path",
-            desc: "Even if you spot the miss, you don't know which changes move rankings.",
-        },
-    ];
+const problems = [
+	{
+		k: '01',
+		title: 'A discovery channel you can’t see',
+		desc: 'Buyers ask assistants for recommendations before they ever reach your site. You have no visibility into what those answers say.',
+	},
+	{
+		k: '02',
+		title: 'Competitors become the default',
+		desc: 'When someone asks for "the best tool", a competitor gets named first — and you’re left out of the shortlist entirely.',
+	},
+	{
+		k: '03',
+		title: 'No idea what to fix',
+		desc: 'Even when you spot a miss, you don’t know whether it’s positioning, proof, or a missing page that’s costing you.',
+	},
+];
 
-    const howItWorks = [
-        {
-            step: "01",
-            title: "Add your product",
-            desc: "Share your site, positioning, and top competitors.",
-        },
-        {
-            step: "02",
-            title: "Scan AI intent",
-            desc: "Run high-intent queries across major AI assistants.",
-        },
-        {
-            step: "03",
-            title: "Ship the fixes",
-            desc: "Get a prioritized report with wins, misses, and next actions.",
-        },
-    ];
+const steps = [
+	{
+		icon: FileSearch,
+		title: 'Profile your product',
+		desc: 'Add your site, positioning, and the competitors you actually lose to.',
+	},
+	{
+		icon: GitCompareArrows,
+		title: 'Scan buyer prompts',
+		desc: 'We run 30 high-intent prompts across the major assistants, several times each.',
+	},
+	{
+		icon: ListChecks,
+		title: 'Ship the fixes',
+		desc: 'Get a prioritized list of positioning, content, and proof changes — with the evidence behind each.',
+	},
+];
 
-    const features = [
-        {
-            icon: Eye,
-            title: "AI Share of Voice",
-            desc: "Measure how often you appear and where you rank across high-intent queries.",
-            stat: "30+",
-            statLabel: "intents tracked",
-        },
-        {
-            icon: Users,
-            title: "Recommendation Reasons",
-            desc: "See the phrasing assistants use and why competitors get picked.",
-            stat: "Top 3",
-            statLabel: "reason drivers",
-        },
-        {
-            icon: FileText,
-            title: "Fix Impact Plan",
-            desc: "Prioritized changes across messaging, docs, and pages to move rankings.",
-            stat: "Weekly",
-            statLabel: "action plan",
-        },
-    ];
+const features = [
+	{
+		stat: '30+',
+		statLabel: 'buyer prompts',
+		title: 'Recommendation share',
+		desc: 'See exactly which prompts recommend you, a competitor, or no one — with position and confidence for every run.',
+	},
+	{
+		stat: 'Top 3',
+		statLabel: 'reasons',
+		title: 'Why competitors win',
+		desc: 'We extract the repeated reasons assistants prefer competitors, grouped into themes you can act on.',
+	},
+	{
+		stat: 'Raw',
+		statLabel: 'transcripts',
+		title: 'Evidence, not vibes',
+		desc: 'Every claim links to the raw model response, run count, and date. No black box, no fake precision.',
+	},
+];
 </script>
 
-<!-- LOGO CLOUD -->
-<section class="logo-section">
-    <div class="container">
-        <div class="flex flex-col items-center gap-8">
-            <p class="logo-label">AI ANSWERS ANALYZED ACROSS</p>
-            <div class="logo-cloud">
-                {#each aiModels as model}
-                    <div class="logo-badge">
-                        <span class="logo-badge-dot"></span>
-                        {model}
-                    </div>
-                {/each}
-            </div>
-        </div>
-    </div>
+<!-- TRUST BAND -->
+<section class="band">
+	<div class="container band-inner">
+		<span class="band-label">Answers analyzed across</span>
+		<div class="band-list">
+			{#each assistants as a}
+				<span class="band-item">{a}</span>
+			{/each}
+		</div>
+	</div>
 </section>
 
 <!-- PROBLEM -->
-<section class="problem-section section-spacing">
-    <div class="container">
-        <ScrollReveal>
-            <div class="section-header">
-                <h2 class="section-title">
-                    AI Is Now the First Stop for Buyers
-                </h2>
-                <p class="section-desc">
-                    Buyers ask AI assistants for recommendations before they
-                    visit your site. If you are not mentioned, you are out of
-                    the conversation.
-                </p>
-            </div>
-        </ScrollReveal>
+<section class="section-spacing">
+	<div class="container">
+		<div class="head">
+			<span class="eyebrow">The shift</span>
+			<h2 class="h2">AI is the first stop for buyers now.</h2>
+			<p class="lede">
+				The buying journey starts in a chat window. If assistants don’t recommend
+				you, you’re out of the conversation before it begins.
+			</p>
+		</div>
 
-        <div class="pain-grid">
-            {#each painPoints as point, i}
-                <ScrollReveal delay={i * 100}>
-                    <Card.Root class="pain-card p-8 lg:p-12">
-                        <Card.Content class="p-0">
-                            <div class="pain-icon">
-                                <point.icon size={24} aria-hidden="true" />
-                            </div>
-                            <h3 class="pain-title">{point.title}</h3>
-                            <p class="pain-desc">{point.desc}</p>
-                        </Card.Content>
-                    </Card.Root>
-                </ScrollReveal>
-            {/each}
-        </div>
-    </div>
-</section>
-
-<!-- SOLUTION -->
-<section class="solution-section section-spacing">
-    <div class="container relative">
-        <div class="solution-decorative-glow"></div>
-        <div class="solution-grid">
-            <div class="solution-content">
-                <ScrollReveal>
-                    <span class="section-tag">THE SOLUTION</span>
-                    <h2 class="section-title">
-                        Turn AI Mentions Into Measurable Growth
-                    </h2>
-                    <p class="section-desc">
-                        AVI monitors answers across assistants, ranks your share
-                        of voice, and tells you exactly what to change.
-                    </p>
-
-                    <ul class="solution-list">
-                        <li>
-                            <Check
-                                size={20}
-                                class="check-icon"
-                                aria-hidden="true"
-                            />
-                            <span>Track where you rank across assistants</span>
-                        </li>
-                        <li>
-                            <Check
-                                size={20}
-                                class="check-icon"
-                                aria-hidden="true"
-                            />
-                            <span>Understand why competitors get picked</span>
-                        </li>
-                        <li>
-                            <Check
-                                size={20}
-                                class="check-icon"
-                                aria-hidden="true"
-                            />
-                            <span>Get a weekly fix plan that ships fast</span>
-                        </li>
-                        <li>
-                            <Check
-                                size={20}
-                                class="check-icon"
-                                aria-hidden="true"
-                            />
-                            <span
-                                >Strategy-first: we tell you what matters, not
-                                just what to write</span
-                            >
-                        </li>
-                    </ul>
-
-                    <Button.Root
-                        variant="brand"
-                        class="solution-cta mt-6"
-                        href="#pricing"
-                    >
-                        View Sample Report
-                        <ArrowRight size={18} class="ml-2" aria-hidden="true" />
-                    </Button.Root>
-                </ScrollReveal>
-            </div>
-            <div class="solution-visual">
-                <ScrollReveal delay={200}>
-                    <div class="dashboard-preview">
-                        <div class="preview-header">
-                            <div class="preview-dots">
-                                <span class="dot red"></span>
-                                <span class="dot yellow"></span>
-                                <span class="dot green"></span>
-                            </div>
-                            <span class="preview-title">AVI Dashboard</span>
-                        </div>
-                        <div class="preview-body">
-                            <div class="preview-score">
-                                <span class="score-label"
-                                    >Your Visibility Score</span
-                                >
-                                <span class="score-value">47%</span>
-                                <span class="score-trend">↑ 12% this week</span>
-                            </div>
-                            <div class="preview-metrics">
-                                <div class="metric">
-                                    <span class="metric-value">14/30</span>
-                                    <span class="metric-label"
-                                        >Queries mentioned</span
-                                    >
-                                </div>
-                                <div class="metric">
-                                    <span class="metric-value">3</span>
-                                    <span class="metric-label"
-                                        >Competitor gaps</span
-                                    >
-                                </div>
-                                <div class="metric">
-                                    <span class="metric-value">5</span>
-                                    <span class="metric-label"
-                                        >Fixes pending</span
-                                    >
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </ScrollReveal>
-            </div>
-        </div>
-    </div>
+		<div class="problem-grid">
+			{#each problems as p}
+				<article class="problem">
+					<span class="problem-k">{p.k}</span>
+					<h3 class="problem-title">{p.title}</h3>
+					<p class="problem-desc">{p.desc}</p>
+				</article>
+			{/each}
+		</div>
+	</div>
 </section>
 
 <!-- HOW IT WORKS -->
-<section class="how-section section-spacing">
-    <div class="container">
-        <ScrollReveal>
-            <div class="section-header">
-                <span class="section-tag">HOW IT WORKS</span>
-                <h2 class="section-title">
-                    From Guesswork to Clarity in 3 Simple Steps
-                </h2>
-            </div>
-        </ScrollReveal>
+<section id="how" class="section-spacing how">
+	<div class="container">
+		<div class="head">
+			<span class="eyebrow">How it works</span>
+			<h2 class="h2">From guesswork to a clear plan in three steps.</h2>
+		</div>
 
-        <div class="steps-grid">
-            {#each howItWorks as step, i}
-                <ScrollReveal delay={i * 150}>
-                    <div class="step-card">
-                        <span class="step-number">{step.step}</span>
-                        <h3 class="step-title">{step.title}</h3>
-                        <p class="step-desc">{step.desc}</p>
-                    </div>
-                </ScrollReveal>
-            {/each}
-        </div>
-    </div>
+		<ol class="steps">
+			{#each steps as s, i}
+				<li class="step">
+					<div class="step-top">
+						<span class="step-num">{(i + 1).toString().padStart(2, '0')}</span>
+						<span class="step-icon"><s.icon size={18} aria-hidden="true" /></span>
+					</div>
+					<h3 class="step-title">{s.title}</h3>
+					<p class="step-desc">{s.desc}</p>
+				</li>
+			{/each}
+		</ol>
+	</div>
 </section>
 
 <!-- FEATURES -->
-<section class="features-section section-spacing">
-    <div class="container">
-        <ScrollReveal>
-            <div class="section-header">
-                <span class="section-tag">FEATURES</span>
-                <h2 class="section-title">
-                    Everything You Need to Win AI Visibility
-                </h2>
-            </div>
-        </ScrollReveal>
+<section class="section-spacing">
+	<div class="container">
+		<div class="head">
+			<span class="eyebrow">What you get</span>
+			<h2 class="h2">Diagnostics, not another vanity score.</h2>
+			<p class="lede">
+				Most tools hand you a number. PromptLens hands you the reason you lost and
+				the fix to win it back.
+			</p>
+		</div>
 
-        <div class="features-grid">
-            {#each features as feature, i}
-                <ScrollReveal delay={i * 100}>
-                    <Card.Root class="feature-card h-full p-8 lg:p-12">
-                        <Card.Header class="p-0">
-                            <div class="flex items-center justify-between">
-                                <div
-                                    class="feature-icon bg-slate-100 p-3 rounded-lg text-brand"
-                                >
-                                    <feature.icon
-                                        size={24}
-                                        aria-hidden="true"
-                                    />
-                                </div>
-                                <div class="feature-stat text-right">
-                                    <Badge variant="secondary" class="font-bold"
-                                        >{feature.stat}</Badge
-                                    >
-                                    <span
-                                        class="block text-[10px] text-muted-foreground uppercase tracking-wider mt-1"
-                                        >{feature.statLabel}</span
-                                    >
-                                </div>
-                            </div>
-                            <Card.Title class="mt-8 text-2xl"
-                                >{feature.title}</Card.Title
-                            >
-                        </Card.Header>
-                        <Card.Content class="p-0 mt-4">
-                            <p class="text-slate-500 text-lg leading-relaxed">
-                                {feature.desc}
-                            </p>
-                        </Card.Content>
-                    </Card.Root>
-                </ScrollReveal>
-            {/each}
-        </div>
-    </div>
+		<div class="feature-grid">
+			{#each features as f}
+				<article class="feature">
+					<div class="feature-stat">
+						<span class="feature-num">{f.stat}</span>
+						<span class="feature-statlabel">{f.statLabel}</span>
+					</div>
+					<h3 class="feature-title">{f.title}</h3>
+					<p class="feature-desc">{f.desc}</p>
+				</article>
+			{/each}
+		</div>
+	</div>
 </section>
+
+<style>
+	/* ── Trust band ── */
+	.band {
+		border-top: 1px solid var(--color-border);
+		border-bottom: 1px solid var(--color-border);
+		background: var(--color-surface);
+	}
+	.band-inner {
+		display: flex;
+		align-items: center;
+		gap: 2rem;
+		padding-top: 1.5rem;
+		padding-bottom: 1.5rem;
+		flex-wrap: wrap;
+	}
+	.band-label {
+		font-family: var(--font-mono);
+		font-size: 0.7rem;
+		letter-spacing: 0.14em;
+		text-transform: uppercase;
+		color: var(--color-slate-400);
+		flex: none;
+	}
+	.band-list {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 1.75rem;
+	}
+	.band-item {
+		font-size: 0.95rem;
+		font-weight: 500;
+		color: var(--color-slate-600);
+	}
+
+	/* ── Shared heads ── */
+	.head {
+		max-width: 38rem;
+		margin-bottom: 3.5rem;
+	}
+	.h2 {
+		font-size: clamp(1.9rem, 3.6vw, 2.8rem);
+		line-height: 1.1;
+		margin: 1rem 0 0;
+		color: var(--color-foreground);
+	}
+	.lede {
+		margin: 1.1rem 0 0;
+		font-size: 1.05rem;
+		line-height: 1.6;
+		color: var(--color-muted-foreground);
+	}
+
+	/* ── Problem ── */
+	.problem-grid {
+		display: grid;
+		grid-template-columns: repeat(3, 1fr);
+		gap: 0;
+		border-top: 1px solid var(--color-border);
+	}
+	.problem {
+		padding: 2rem 2rem 2rem 0;
+		border-right: 1px solid var(--color-border);
+	}
+	.problem:last-child {
+		border-right: none;
+		padding-right: 0;
+	}
+	.problem:not(:first-child) {
+		padding-left: 2rem;
+	}
+	.problem-k {
+		font-family: var(--font-mono);
+		font-size: 0.78rem;
+		color: var(--color-primary);
+		letter-spacing: 0.05em;
+	}
+	.problem-title {
+		font-family: var(--font-sans);
+		font-size: 1.15rem;
+		font-weight: 600;
+		letter-spacing: -0.01em;
+		margin: 0.9rem 0 0;
+		color: var(--color-foreground);
+	}
+	.problem-desc {
+		margin: 0.6rem 0 0;
+		font-size: 0.95rem;
+		line-height: 1.55;
+		color: var(--color-muted-foreground);
+	}
+
+	/* ── How it works ── */
+	.how {
+		background: var(--color-surface);
+		border-top: 1px solid var(--color-border);
+		border-bottom: 1px solid var(--color-border);
+	}
+	.steps {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: grid;
+		grid-template-columns: repeat(3, 1fr);
+		gap: 2.5rem;
+		counter-reset: step;
+	}
+	.step-top {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding-bottom: 1rem;
+		border-bottom: 1px solid var(--color-border);
+	}
+	.step-num {
+		font-family: var(--font-mono);
+		font-size: 1.4rem;
+		font-weight: 500;
+		color: var(--color-slate-300);
+	}
+	.step-icon {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 36px;
+		height: 36px;
+		border-radius: var(--radius-md);
+		background: var(--color-accent);
+		color: var(--color-primary);
+	}
+	.step-title {
+		font-family: var(--font-sans);
+		font-size: 1.15rem;
+		font-weight: 600;
+		letter-spacing: -0.01em;
+		margin: 1.2rem 0 0;
+		color: var(--color-foreground);
+	}
+	.step-desc {
+		margin: 0.55rem 0 0;
+		font-size: 0.95rem;
+		line-height: 1.55;
+		color: var(--color-muted-foreground);
+	}
+
+	/* ── Features ── */
+	.feature-grid {
+		display: grid;
+		grid-template-columns: repeat(3, 1fr);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-lg);
+		overflow: hidden;
+		background: var(--color-surface);
+	}
+	.feature {
+		padding: 2rem;
+		border-right: 1px solid var(--color-border);
+	}
+	.feature:last-child {
+		border-right: none;
+	}
+	.feature-stat {
+		display: flex;
+		align-items: baseline;
+		gap: 0.5rem;
+		padding-bottom: 1.25rem;
+		margin-bottom: 1.25rem;
+		border-bottom: 1px solid var(--color-border);
+	}
+	.feature-num {
+		font-family: var(--font-mono);
+		font-size: 1.6rem;
+		font-weight: 600;
+		color: var(--color-primary);
+	}
+	.feature-statlabel {
+		font-family: var(--font-mono);
+		font-size: 0.7rem;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--color-slate-400);
+	}
+	.feature-title {
+		font-family: var(--font-sans);
+		font-size: 1.15rem;
+		font-weight: 600;
+		letter-spacing: -0.01em;
+		margin: 0;
+		color: var(--color-foreground);
+	}
+	.feature-desc {
+		margin: 0.55rem 0 0;
+		font-size: 0.95rem;
+		line-height: 1.55;
+		color: var(--color-muted-foreground);
+	}
+
+	@media (max-width: 860px) {
+		.problem-grid,
+		.steps,
+		.feature-grid {
+			grid-template-columns: 1fr;
+		}
+		.problem {
+			padding: 1.5rem 0;
+			border-right: none;
+			border-bottom: 1px solid var(--color-border);
+		}
+		.problem:not(:first-child) {
+			padding-left: 0;
+		}
+		.feature {
+			border-right: none;
+			border-bottom: 1px solid var(--color-border);
+		}
+		.feature:last-child {
+			border-bottom: none;
+		}
+	}
+</style>

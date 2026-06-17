@@ -12,13 +12,13 @@ let mobileMenuOpen = $state(false);
             <div class="logo-icon">
                 <Eye size={20} aria-hidden="true" />
             </div>
-            <span class="logo-text">AVI</span>
+            <span class="logo-text">PromptLens</span>
         </a>
 
         <nav class="nav-links">
             <a href="/#pricing" class="nav-link">Pricing</a>
             <a href="/#faq" class="nav-link">FAQ</a>
-            <a href="https://docs.aivis.io" class="nav-link">Docs</a>
+            <a href="https://docs.promptlens.dev" class="nav-link">Docs</a>
         </nav>
 
         <div class="nav-actions">
@@ -43,7 +43,7 @@ let mobileMenuOpen = $state(false);
             {:else}
                 <a href="/login" class="nav-link login-link">Log In</a>
                 <Button.Root variant="brand" class="nav-cta" href="/login"
-                    >Run Free Scan</Button.Root
+                    >Run diagnostic</Button.Root
                 >
             {/if}
         </div>
@@ -76,7 +76,7 @@ let mobileMenuOpen = $state(false);
                 onclick={() => (mobileMenuOpen = false)}>FAQ</a
             >
             <a
-                href="https://docs.aivis.io"
+                href="https://docs.promptlens.dev"
                 class="mobile-link"
                 onclick={() => (mobileMenuOpen = false)}>Docs</a
             >
@@ -98,7 +98,7 @@ let mobileMenuOpen = $state(false);
                     onclick={() => (mobileMenuOpen = false)}>Log In</a
                 >
                 <Button.Root variant="brand" class="mobile-cta" href="/login"
-                    >Run Free Scan</Button.Root
+                    >Run diagnostic</Button.Root
                 >
             {/if}
         </div>

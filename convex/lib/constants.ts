@@ -59,6 +59,25 @@ export const INTENT_QUERY_TEMPLATES: IntentQuery[] = [
 	{ query: 'Tool for {USE_CASE} for small business', category: 'use_cases' },
 ];
 
+export interface IntentQueryVars {
+	product: string;
+	industry: string;
+	useCase: string;
+	competitor: string;
+}
+
+/**
+ * Substitute intent-query placeholders with project values.
+ * Replaces every occurrence so repeated placeholders all resolve.
+ */
+export function fillIntentQueryTemplate(template: string, vars: IntentQueryVars): string {
+	return template
+		.replaceAll('{PRODUCT}', vars.product)
+		.replaceAll('{INDUSTRY}', vars.industry)
+		.replaceAll('{USE_CASE}', vars.useCase)
+		.replaceAll('{COMPETITOR}', vars.competitor);
+}
+
 /**
  * Pricing tiers — display values aligned with PLAN_LIMITS in dodo.ts
  */

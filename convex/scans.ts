@@ -51,6 +51,7 @@ async function analyzeWithConfidence(
 	productName: string,
 	productDescription: string,
 	forcedProvider?: LLMProvider,
+	productContext?: { url?: string; useCase?: string },
 ): Promise<ConfidenceResult<BrandVisibilityResponse>> {
 	const runConfigs = [{ temperature: 0.2 }, { temperature: 0.3 }, { temperature: 0.4 }];
 
@@ -59,7 +60,12 @@ async function analyzeWithConfidence(
 			try {
 				const analyzeArgs = {
 					systemPrompt: SYSTEM_PROMPT,
-					userPrompt: getBrandVisibilityPrompt(queryText, productName, productDescription),
+					userPrompt: getBrandVisibilityPrompt(
+						queryText,
+						productName,
+						productDescription,
+						productContext,
+					),
 					temperature: config.temperature,
 					maxTokens: LLM_CONFIG.maxTokens,
 				};
@@ -324,7 +330,8 @@ export const runScan = action({
 					query.query,
 					project.name,
 					project.description,
-					forcedProvider
+					forcedProvider,
+					{ url: project.url, useCase: project.primaryUseCase }
 				);
 
 				totalRuns += visibility.runs;
@@ -468,6 +475,8 @@ export const runScanForProject = internalAction({
 					query.query,
 					project.name,
 					project.description,
+					undefined,
+					{ url: project.url, useCase: project.primaryUseCase }
 				);
 
 				resultsCount++;

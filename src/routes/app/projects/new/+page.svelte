@@ -13,6 +13,7 @@
     } from "lucide-svelte";
     import { goto } from "$app/navigation";
     import { api } from "$convex/_generated/api";
+    import { validateProjectUrl } from "$convex/lib/utils";
     import * as Button from "$lib/components/ui/button/index.js";
     import Input from "$lib/components/ui/input.svelte";
     import Label from "$lib/components/ui/label.svelte";
@@ -23,6 +24,8 @@
     let name = $state("");
     let description = $state("");
     let industry = $state("");
+    let url = $state("");
+    let primaryUseCase = $state("");
     let competitors = $state<{ name: string; url: string }[]>([
         { name: "", url: "" },
     ]);
@@ -31,11 +34,19 @@
 
     const totalSteps = 3;
 
+    // URL is optional, but if provided it must be valid before continuing.
+    const urlError = $derived(
+        url.trim().length > 0 && !validateProjectUrl(url).valid
+            ? "Enter a valid website URL (e.g. https://acme.com)"
+            : null,
+    );
+
     // Validation helpers
     const canProceedToStep2 = $derived(
         name.trim().length > 0 &&
             description.trim().length > 0 &&
-            industry.trim().length > 0,
+            industry.trim().length > 0 &&
+            urlError === null,
     );
     const validCompetitors = $derived(
         competitors.filter((c) => c.name.trim().length > 0),
@@ -88,6 +99,8 @@
                 name: name.trim(),
                 description: description.trim(),
                 industry: industry.trim(),
+                url: url.trim() || undefined,
+                primaryUseCase: primaryUseCase.trim() || undefined,
                 competitors: finalCompetitors,
             });
 
@@ -253,6 +266,52 @@
                             <p class="text-xs text-slate-500">
                                 Keep it clear and outcome-focused. Avoid
                                 marketing fluff.
+                            </p>
+                        </div>
+
+                        <div class="space-y-3">
+                            <Label
+                                for="product-url"
+                                class="font-medium text-slate-700"
+                                >Website <span class="text-slate-400 font-normal"
+                                    >(optional)</span
+                                ></Label
+                            >
+                            <Input
+                                id="product-url"
+                                type="url"
+                                placeholder="https://acme.com"
+                                bind:value={url}
+                                class="h-12 text-lg px-4 bg-slate-50/50 border-slate-200 focus:bg-white"
+                            />
+                            {#if urlError}
+                                <p class="text-xs text-red-600">{urlError}</p>
+                            {:else}
+                                <p class="text-xs text-slate-500">
+                                    We use your site to ground the AI's
+                                    evaluation in real positioning.
+                                </p>
+                            {/if}
+                        </div>
+
+                        <div class="space-y-3">
+                            <Label
+                                for="use-case"
+                                class="font-medium text-slate-700"
+                                >Primary use case <span
+                                    class="text-slate-400 font-normal"
+                                    >(optional)</span
+                                ></Label
+                            >
+                            <Input
+                                id="use-case"
+                                placeholder="e.g. automating code reviews"
+                                bind:value={primaryUseCase}
+                                class="h-12 text-lg px-4 bg-slate-50/50 border-slate-200 focus:bg-white"
+                            />
+                            <p class="text-xs text-slate-500">
+                                The main job buyers hire you for. Sharpens
+                                use-case buyer prompts.
                             </p>
                         </div>
                     </div>
@@ -476,13 +535,13 @@
     .wizard-container {
         display: flex;
         min-height: calc(100vh - 64px);
-        background-color: #f8fafc;
+        background-color: var(--color-slate-50);
     }
 
     .wizard-sidebar {
         width: 320px;
         background-color: white;
-        border-right: 1px solid #e2e8f0;
+        border-right: 1px solid var(--color-slate-200);
         padding: 2.5rem 2rem;
         flex-direction: column;
     }
@@ -513,7 +572,7 @@
         bottom: 24px;
         left: 15px;
         width: 2px;
-        background-color: #f1f5f9;
+        background-color: var(--color-slate-100);
         z-index: 0;
     }
 
@@ -535,11 +594,11 @@
         height: 32px;
         border-radius: 50%;
         background-color: white;
-        border: 2px solid #e2e8f0;
+        border: 2px solid var(--color-slate-200);
         display: flex;
         align-items: center;
         justify-content: center;
-        color: #94a3b8;
+        color: var(--color-slate-400);
         transition: all 0.3s;
     }
 
@@ -557,13 +616,13 @@
 
     .step-name {
         font-weight: 600;
-        color: #0f172a;
+        color: var(--color-slate-900);
         font-size: 0.95rem;
     }
 
     .step-desc {
         font-size: 0.8rem;
-        color: #64748b;
+        color: var(--color-slate-500);
     }
 
     .wizard-main {
@@ -586,14 +645,14 @@
     .step-header h1 {
         font-size: 2rem;
         font-weight: 800;
-        color: #0f172a;
+        color: var(--color-slate-900);
         margin-bottom: 0.5rem;
         letter-spacing: -0.02em;
     }
 
     .step-header p {
         font-size: 1.125rem;
-        color: #64748b;
+        color: var(--color-slate-500);
     }
 
     .form-grid {
@@ -603,8 +662,8 @@
     }
 
     .competitor-card {
-        background: #f8fafc;
-        border: 1px solid #e2e8f0;
+        background: var(--color-slate-50);
+        border: 1px solid var(--color-slate-200);
         border-radius: 0.75rem;
         padding: 1.25rem;
         transition:
@@ -613,8 +672,8 @@
     }
 
     .competitor-card:focus-within {
-        border-color: #cbd5e1;
-        background: #f1f5f9;
+        border-color: var(--color-slate-300);
+        background: var(--color-slate-100);
     }
 
     .competitors-list {
@@ -628,10 +687,10 @@
         align-items: center;
         gap: 0.75rem;
         padding: 1rem;
-        border: 2px dashed #e2e8f0;
+        border: 2px dashed var(--color-slate-200);
         border-radius: 0.75rem;
         background: transparent;
-        color: #64748b;
+        color: var(--color-slate-500);
         cursor: pointer;
         width: 100%;
         transition: all 0.2s;
@@ -650,7 +709,7 @@
         width: 2rem;
         height: 2rem;
         border-radius: 50%;
-        background: #f1f5f9;
+        background: var(--color-slate-100);
         transition: background-color 0.2s;
     }
 
@@ -661,7 +720,7 @@
 
     .review-card {
         background: white;
-        border: 1px solid #e2e8f0;
+        border: 1px solid var(--color-slate-200);
         border-radius: 1rem;
         padding: 2rem;
         box-shadow:
@@ -674,7 +733,7 @@
         font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.05em;
-        color: #94a3b8;
+        color: var(--color-slate-400);
         margin-bottom: 0.5rem;
     }
 
@@ -684,14 +743,14 @@
         align-items: center;
         margin-top: 3rem;
         padding-top: 1.5rem;
-        border-top: 1px solid #e2e8f0;
+        border-top: 1px solid var(--color-slate-200);
     }
 
     .back-link {
         display: inline-flex;
         align-items: center;
         gap: 0.5rem;
-        color: #64748b;
+        color: var(--color-slate-500);
         text-decoration: none;
         font-size: 0.875rem;
         font-weight: 500;
@@ -699,7 +758,7 @@
     }
 
     .back-link:hover {
-        color: #0f172a;
+        color: var(--color-slate-900);
     }
 
     .error-banner {

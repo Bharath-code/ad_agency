@@ -2,6 +2,39 @@
 
 > Source PRD: `docs/product_strategy_master_plan.md`
 
+## Execution Protocol (one phase per session)
+
+Each phase is delivered on its own branch, then we start a fresh session for the next phase
+so context stays clean. Repeat this loop for every phase:
+
+1. **Branch.** Create `feat/phase-<N>-<slug>` (e.g. `feat/phase-2-project-url`). Base it on `main`
+   if the previous phase's PR is merged; otherwise base it on the previous phase's branch.
+2. **Build.** Implement the phase against its acceptance criteria. Honor the design system and
+   conventions in `CLAUDE.md`. Add/extend tests.
+3. **Verify.** `npm test` + `npm run check` must be green (0 errors). Preview UI changes locally
+   (see CLAUDE.md → "Local Preview Without a Backend").
+4. **Push.** Commit (Co-Authored-By trailer), push the branch, open a PR.
+5. **Record.** Tick this phase's box below, update CLAUDE.md "Product & Roadmap Status" (move the
+   "Next up" pointer), and refresh `.remember/remember.md` (local handoff for the next session).
+6. **Reset.** `/clear` (or open a new session) and resume at the next phase.
+
+## Status Tracker
+
+- [x] **Phase 0 — Rename to PromptLens** (Task 1) — branch `feat/promptlens-roadmap`
+- [x] **Full UI/UX redesign** — "Editorial Intelligence" design system (landing + entire app shell)
+- [x] **Phase 2 — Project URL + primary use case** — branch `feat/phase-2-project-url`
+- [ ] **Phase 3 — Industry prompt library** ← NEXT
+- [ ] **Phase 4 — Multi-model confidence**
+- [ ] **Phase 5 — Evidence viewer**
+- [ ] **Phase 6 — Competitor win/loss dashboard**
+- [ ] **Phase 7 — Recommendation action queue**
+- [ ] **Phase 8 — Weekly report & retention**
+- [ ] **Phase 9 — Billing & entitlements** (reconcile the 3-way pricing inconsistency here)
+- [ ] **Phase 10 — Agency reports**
+
+> Note: the original numbered "Phase 1: Rename" is done (tracked above as Phase 0 + the redesign).
+> Numbering below keeps the original document's phase numbers.
+
 ## Architectural Decisions
 
 - **Routes:** Keep `/app/projects`, `/app/projects/new`, and `/app/projects/[id]` as the primary project workflow. Add detail surfaces inside project pages before introducing major route sprawl.
@@ -40,11 +73,11 @@ Extend project creation with URL and primary use case, then feed those fields in
 
 ### Acceptance Criteria
 
-- [ ] Project creation captures product URL and primary use case.
-- [ ] URL validation prevents unsafe or malformed values.
-- [ ] Project profile can be edited after creation.
-- [ ] Prompt templates use product URL and use case where useful.
-- [ ] Tests cover validation and prompt substitution.
+- [x] Project creation captures product URL and primary use case.
+- [x] URL validation prevents unsafe or malformed values.
+- [x] Project profile can be edited after creation.
+- [x] Prompt templates use product URL and use case where useful.
+- [x] Tests cover validation and prompt substitution.
 
 ---
 

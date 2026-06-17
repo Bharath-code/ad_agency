@@ -94,7 +94,7 @@ export const sendWelcomeEmail = action({
 
 		await sendEmail({
 			to: email,
-			subject: 'Welcome to AI Visibility Intelligence!',
+			subject: 'Welcome to PromptLens!',
 			html,
 		});
 

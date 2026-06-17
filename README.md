@@ -1,6 +1,6 @@
-# RivalEye
+# PromptLens
 
-RivalEye is an AI Visibility Intelligence platform that helps SaaS and B2B companies track, analyze, and optimize how often Large Language Models (LLMs) like ChatGPT, Claude, and Perplexity recommend their product over competitors.
+PromptLens is an AI recommendation diagnostics platform that shows B2B teams why AI assistants like ChatGPT, Claude, and Perplexity recommend competitors instead of them, then gives the exact content and positioning fixes to win those buyer prompts.
 
 ## Features
 
