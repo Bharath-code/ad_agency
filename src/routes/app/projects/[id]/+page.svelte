@@ -5,6 +5,8 @@ import { goto } from '$app/navigation';
 import { page } from '$app/stores';
 import { api } from '$convex/_generated/api';
 import type { Doc, Id } from '$convex/_generated/dataModel';
+import type { PromptEvidence } from '$convex/lib/evidence';
+import EvidenceModal from '$lib/components/dashboard/EvidenceModal.svelte';
 import RecommendedFixes from '$lib/components/dashboard/RecommendedFixes.svelte';
 import TopMisses from '$lib/components/dashboard/TopMisses.svelte';
 import TopWins from '$lib/components/dashboard/TopWins.svelte';
@@ -42,16 +44,19 @@ type DashboardSummary = {
 	primaryMentions: number;
 	secondaryMentions: number;
 	topWins: Array<{
+		queryId: string;
 		query: string;
 		context: string;
 		confidence: 'high' | 'medium' | 'low';
 	}>;
 	topMisses: Array<{
+		queryId: string;
 		query: string;
 		competitorMentioned?: string;
 		reasons: string[];
 	}>;
 	recommendedFixes: Array<{
+		queryId: string;
 		query: string;
 		positioningFix?: string;
 		contentSuggestion?: string;
@@ -64,7 +69,18 @@ let isLoading = $state(true);
 let project = $state<ProjectView | null>(null);
 let competitors = $state<CompetitorView[]>([]);
 let dashboardData = $state<DashboardSummary | null>(null);
+let evidenceData = $state<PromptEvidence[]>([]);
+let selectedEvidence = $state<PromptEvidence | null>(null);
 let scanStatus = $state<'idle' | 'scanning' | 'success' | 'error'>('idle');
+
+function openEvidence(queryId: string) {
+	const match = evidenceData.find((e) => e.queryId === queryId);
+	if (match) {
+		selectedEvidence = match;
+	} else {
+		toasts.error('No evidence available for this prompt yet.');
+	}
+}
 let showAddCompetitor = $state(false);
 let newCompetitorName = $state('');
 let newCompetitorUrl = $state('');
@@ -93,10 +109,11 @@ onMount(() => {
 
 async function loadProject() {
 	try {
-		const [projectData, competitorData, summary] = await Promise.all([
+		const [projectData, competitorData, summary, evidence] = await Promise.all([
 			convex.query(api.projects.get, { projectId }).catch(() => null),
 			convex.query(api.competitors.listByProject, { projectId }).catch(() => []),
 			convex.query(api.results.getDashboardSummary, { projectId }).catch(() => null),
+			convex.query(api.results.getEvidence, { projectId }).catch(() => []),
 		]);
 
 		if (!projectData) {
@@ -119,6 +136,7 @@ async function loadProject() {
 					secondaryMentions: 9,
 					topWins: [
 						{
+							queryId: 'mock-win-1',
 							query: 'best ai agency',
 							context: 'Brand appears in primary recommendation.',
 							confidence: 'high' as const,
@@ -126,6 +144,7 @@ async function loadProject() {
 					],
 					topMisses: [
 						{
+							queryId: 'mock-miss-1',
 							query: 'ad agency automation',
 							competitorMentioned: 'Competitor A',
 							reasons: ['More proof-based messaging', 'Broader integration support'],
@@ -133,6 +152,7 @@ async function loadProject() {
 					],
 					recommendedFixes: [
 						{
+							queryId: 'mock-miss-1',
 							query: 'ad agency automation',
 							positioningFix: 'Clarify your core value in hero messaging.',
 							contentSuggestion: 'Publish a dedicated use-case landing page.',
@@ -140,6 +160,50 @@ async function loadProject() {
 						},
 					],
 				};
+				evidenceData = [
+					{
+						queryId: 'mock-win-1',
+						queryText: 'best ai agency',
+						scanId: 'mock-scan',
+						model: 'consensus',
+						position: 'primary',
+						mentioned: true,
+						context: 'Brand appears in primary recommendation.',
+						confidence: 'high',
+						runCount: 6,
+						successfulRuns: 6,
+						consensusRatio: 1,
+						models: [],
+						competitorReasons: [],
+						fixes: {},
+						createdAt: Date.now(),
+					},
+					{
+						queryId: 'mock-miss-1',
+						queryText: 'ad agency automation',
+						scanId: 'mock-scan',
+						model: 'consensus',
+						position: 'not_mentioned',
+						mentioned: false,
+						context: 'Competitors dominate this query.',
+						confidence: 'medium',
+						runCount: 6,
+						successfulRuns: 5,
+						consensusRatio: 0.8,
+						models: [],
+						competitorMentioned: 'Competitor A',
+						competitorReasons: [
+							'More proof-based messaging',
+							'Broader integration support',
+						],
+						fixes: {
+							positioningFix: 'Clarify your core value in hero messaging.',
+							contentSuggestion: 'Publish a dedicated use-case landing page.',
+							messagingFix: 'Add measurable outcomes to above-the-fold copy.',
+						},
+						createdAt: Date.now(),
+					},
+				];
 			} else {
 				goto('/app/projects');
 				return;
@@ -148,6 +212,7 @@ async function loadProject() {
 			project = projectData;
 			competitors = competitorData;
 			dashboardData = summary;
+			evidenceData = evidence;
 		}
 	} catch (error) {
 		console.error('Failed to load project:', error);
@@ -171,8 +236,12 @@ async function runScan() {
 		const result = await convex.action(api.scans.runScan, { projectId });
 		scanStatus = 'success';
 		toasts.success(`Scan completed! Analyzed ${result.resultsCount} queries.`);
-		const summary = await convex.query(api.results.getDashboardSummary, { projectId });
+		const [summary, evidence] = await Promise.all([
+			convex.query(api.results.getDashboardSummary, { projectId }),
+			convex.query(api.results.getEvidence, { projectId }),
+		]);
 		dashboardData = summary;
+		evidenceData = evidence;
 		setTimeout(() => {
 			scanStatus = 'idle';
 		}, 3000);
@@ -345,8 +414,8 @@ function formatDate(timestamp: number): string {
 
                 {#if dashboardData}
                     <div class="insights-grid">
-                        <TopWins wins={dashboardData.topWins ?? []} />
-                        <TopMisses misses={dashboardData.topMisses ?? []} />
+                        <TopWins wins={dashboardData.topWins ?? []} onSelect={openEvidence} />
+                        <TopMisses misses={dashboardData.topMisses ?? []} onSelect={openEvidence} />
                     </div>
                     <RecommendedFixes
                         fixes={dashboardData.recommendedFixes ?? []}
@@ -530,6 +599,11 @@ function formatDate(timestamp: number): string {
         </div>
     </div>
 </Modal>
+
+<EvidenceModal
+    evidence={selectedEvidence}
+    onClose={() => (selectedEvidence = null)}
+/>
 
 <style>
     .project-detail {

@@ -62,12 +62,24 @@ See `plans/promptlens-roadmap.md` → "Execution Protocol" + "Status Tracker" fo
   per-model from the latest single scan's `modelResults` (legacy rows fall back to top-level model).
   Dashboard scan dropdown defaults to "All Models" and toasts partial-provider failure. Tests:
   `tests/unit/consensus.test.ts`.
+- **Phase 5 — Evidence viewer** (branch `feat/phase-5-evidence-viewer`): clicking any top win/miss opens an
+  `EvidenceModal` with the per-prompt evidence (verdict, per-model breakdown, competitor winner + reasons,
+  recommended fixes, scan date). Evidence is built from **typed result fields** via a pure
+  `convex/lib/evidence.ts` `toEvidence(result, queryText)` — it never reads `rawResponse`, so internal
+  system prompts + provider API metadata (token usage/latency) cannot leak (unit-tested in
+  `tests/unit/evidence.test.ts`). New `results.getEvidence(projectId)` query (latest scan); `queryId` added
+  to `topWins`/`topMisses`/`recommendedFixes` in the dashboard summary so items link to evidence. Wired into
+  **both** the dashboard and the project detail page. All evidence text rendered via Svelte `{}` (auto-escaped,
+  no `{@html}`); modal is responsive (full-screen on mobile) with Esc/backdrop close. Also fixed
+  `ResponseTranscript.svelte`'s hardcoded "OpenAI GPT-4o-mini" attribution to derive from the result's model.
+  Decision: evidence renders the **stored structured verdict**, not verbatim raw model text (user choice —
+  no scan/schema change).
 
-**Next up: Phase 5 — Evidence viewer.** Branch `feat/phase-5-evidence-viewer`. Add a prompt detail view
-(prompt text, model, raw transcript, parsed recommendation, competitor winner, reasons, confidence, scan
-date); link every top win/miss to evidence; render raw model output as text (never HTML); hide internal
-system prompts/API metadata; polished empty/error states; works on mobile + desktop. See
-`plans/promptlens-roadmap.md` → "Phase 5".
+**Next up: Phase 6 — Competitor win/loss dashboard.** Branch `feat/phase-6-competitor-winloss`. Group missed
+prompts by winning competitor + repeated reason themes (dedup); each competitor shows representative prompts;
+drill into evidence per reason; polished empty state. **Also carried over from Phase 4:** make competitor
+"who wins & why" reasoning cross-model consensus (reuse `convex/lib/consensus.ts`). See
+`plans/promptlens-roadmap.md` → "Phase 6".
 
 **Known open decisions (do not silently resolve):**
 - **Pricing is inconsistent** across three sources — code (`convex/lib/constants.ts`: indie $49 /

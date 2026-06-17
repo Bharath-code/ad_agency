@@ -3,7 +3,9 @@
 	import { onMount } from "svelte";
 	import { api } from "$convex/_generated/api";
 	import type { Id } from "$convex/_generated/dataModel";
+	import type { PromptEvidence } from "$convex/lib/evidence";
 	import CompetitorBattle from "$lib/components/dashboard/CompetitorBattle.svelte";
+	import EvidenceModal from "$lib/components/dashboard/EvidenceModal.svelte";
 	import RecommendedFixes from "$lib/components/dashboard/RecommendedFixes.svelte";
 	import ResponseTranscript from "$lib/components/dashboard/ResponseTranscript.svelte";
 	import TopMisses from "$lib/components/dashboard/TopMisses.svelte";
@@ -32,16 +34,19 @@
 		primaryMentions: number;
 		secondaryMentions: number;
 		topWins: Array<{
+			queryId: string;
 			query: string;
 			context: string;
 			confidence: "high" | "medium" | "low";
 		}>;
 		topMisses: Array<{
+			queryId: string;
 			query: string;
 			competitorMentioned?: string;
 			reasons: string[];
 		}>;
 		recommendedFixes: Array<{
+			queryId: string;
 			query: string;
 			positioningFix?: string;
 			contentSuggestion?: string;
@@ -73,6 +78,7 @@
 		queryText: string;
 		position: "primary" | "secondary" | "not_mentioned";
 		confidence: "high" | "medium" | "low";
+		model?: string;
 		rawResponse?: string;
 		createdAt: number;
 	};
@@ -96,7 +102,18 @@
 	let competitorData = $state<CompetitorComparison | null>(null);
 	let transcriptData = $state<TranscriptResult[]>([]);
 	let modelComparisonData = $state<ModelComparisonData>([]);
+	let evidenceData = $state<PromptEvidence[]>([]);
+	let selectedEvidence = $state<PromptEvidence | null>(null);
 	let selectedModelToScan = $state<string>("all");
+
+	function openEvidence(queryId: string) {
+		const match = evidenceData.find((e) => e.queryId === queryId);
+		if (match) {
+			selectedEvidence = match;
+		} else {
+			toasts.error("No evidence available for this prompt yet.");
+		}
+	}
 	let isScanning = $state(false);
 	let dashboardError = $state<string | null>(null);
 
@@ -167,7 +184,7 @@
 	async function loadDashboard(projectId: Id<"projects">) {
 		try {
 			// Load all data in parallel
-			const [summary, competitors, transcripts, comparisons] =
+			const [summary, competitors, transcripts, comparisons, evidence] =
 				await withTimeout(
 					Promise.all([
 						convex.query(api.results.getDashboardSummary, {
@@ -182,6 +199,9 @@
 						convex.query(api.results.getModelComparison, {
 							projectId,
 						}),
+						convex.query(api.results.getEvidence, {
+							projectId,
+						}),
 					]),
 				);
 
@@ -189,6 +209,7 @@
 			competitorData = competitors;
 			transcriptData = transcripts;
 			modelComparisonData = comparisons;
+			evidenceData = evidence;
 			dashboardError = null;
 		} catch (error) {
 			if (import.meta.env.VITE_BYPASS_AUTH === "true") {
@@ -205,12 +226,14 @@
 					secondaryMentions: 11,
 					topWins: [
 						{
+							queryId: "mock-win-1",
 							query: "best ad agency tools",
 							context:
 								"Brand appears in top recommendation list.",
 							confidence: "high",
 						},
 						{
+							queryId: "mock-win-2",
 							query: "ai visibility platform",
 							context: "Brand appears as strong alternative.",
 							confidence: "medium",
@@ -218,6 +241,7 @@
 					],
 					topMisses: [
 						{
+							queryId: "mock-miss-1",
 							query: "competitor analysis ai",
 							competitorMentioned: "AdTechPro",
 							reasons: [
@@ -228,6 +252,7 @@
 					],
 					recommendedFixes: [
 						{
+							queryId: "mock-miss-1",
 							query: "competitor analysis ai",
 							positioningFix:
 								"Clarify differentiation in first fold messaging.",
@@ -237,6 +262,7 @@
 								"Use outcome-first proof points in copy.",
 						},
 						{
+							queryId: "mock-win-1",
 							query: "best ad agency tools",
 							positioningFix:
 								"Lead with unique signal quality approach.",
@@ -289,6 +315,90 @@
 						createdAt: Date.now(),
 					},
 				];
+				evidenceData = [
+					{
+						queryId: "mock-win-1",
+						queryText: "best ad agency tools",
+						scanId: "mock-scan",
+						model: "consensus",
+						position: "primary",
+						mentioned: true,
+						context: "Brand appears in top recommendation list.",
+						confidence: "high",
+						runCount: 6,
+						successfulRuns: 6,
+						consensusRatio: 1,
+						models: [
+							{
+								model: "openai",
+								position: "primary",
+								mentioned: true,
+								runCount: 3,
+								successfulRuns: 3,
+								consensusRatio: 1,
+								confidence: "high",
+							},
+							{
+								model: "claude",
+								position: "primary",
+								mentioned: true,
+								runCount: 3,
+								successfulRuns: 3,
+								consensusRatio: 1,
+								confidence: "high",
+							},
+						],
+						competitorReasons: [],
+						fixes: {},
+						createdAt: Date.now(),
+					},
+					{
+						queryId: "mock-miss-1",
+						queryText: "competitor analysis ai",
+						scanId: "mock-scan",
+						model: "consensus",
+						position: "not_mentioned",
+						mentioned: false,
+						context: "Competitors dominate this query.",
+						confidence: "medium",
+						runCount: 6,
+						successfulRuns: 5,
+						consensusRatio: 0.8,
+						models: [
+							{
+								model: "openai",
+								position: "not_mentioned",
+								mentioned: false,
+								runCount: 3,
+								successfulRuns: 3,
+								consensusRatio: 1,
+								confidence: "high",
+							},
+							{
+								model: "claude",
+								position: "secondary",
+								mentioned: true,
+								runCount: 3,
+								successfulRuns: 2,
+								consensusRatio: 0.5,
+								confidence: "low",
+							},
+						],
+						competitorMentioned: "AdTechPro",
+						competitorReasons: [
+							"More comparison-focused content",
+							"Stronger social proof",
+						],
+						fixes: {
+							positioningFix:
+								"Clarify differentiation in first fold messaging.",
+							contentSuggestion:
+								"Ship a feature-comparison page with evidence.",
+							messagingFix: "Use outcome-first proof points in copy.",
+						},
+						createdAt: Date.now(),
+					},
+				];
 				dashboardError = null;
 			} else {
 				console.error("Failed to load dashboard from Convex:", error);
@@ -296,6 +406,7 @@
 				competitorData = null;
 				transcriptData = [];
 				modelComparisonData = [];
+				evidenceData = [];
 				dashboardError =
 					"Unable to load dashboard data. Check backend connectivity and try again.";
 			}
@@ -565,8 +676,8 @@
 			{/if}
 
 			<div class="insights-grid">
-				<TopWins wins={dashboardData.topWins ?? []} />
-				<TopMisses misses={dashboardData.topMisses ?? []} />
+				<TopWins wins={dashboardData.topWins ?? []} onSelect={openEvidence} />
+				<TopMisses misses={dashboardData.topMisses ?? []} onSelect={openEvidence} />
 			</div>
 
 			<div class="fixes-section">
@@ -593,6 +704,11 @@
 		</div>
 	{/if}
 </div>
+
+<EvidenceModal
+	evidence={selectedEvidence}
+	onClose={() => (selectedEvidence = null)}
+/>
 
 <style>
 	.dashboard {

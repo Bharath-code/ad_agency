@@ -2,6 +2,7 @@
 import { CheckCircle } from 'lucide-svelte';
 
 type Win = {
+	queryId: string;
 	query: string;
 	context: string;
 	confidence: 'high' | 'medium' | 'low';
@@ -9,9 +10,10 @@ type Win = {
 
 type Props = {
 	wins: Win[];
+	onSelect?: (queryId: string) => void;
 };
 
-const { wins }: Props = $props();
+const { wins, onSelect }: Props = $props();
 </script>
 
 <div class="top-wins">
@@ -27,14 +29,25 @@ const { wins }: Props = $props();
     {:else}
         <ul class="wins-list">
             {#each wins as win}
-                <li class="win-item">
-                    <div class="win-header">
-                        <span class="win-query">{win.query}</span>
-                        <span
-                            class="confidence-dot confidence--{win.confidence}"
-                        ></span>
-                    </div>
-                    <p class="win-context">{win.context}</p>
+                <li>
+                    <button
+                        type="button"
+                        class="win-item"
+                        class:clickable={!!onSelect}
+                        onclick={() => onSelect?.(win.queryId)}
+                        disabled={!onSelect}
+                    >
+                        <div class="win-header">
+                            <span class="win-query">{win.query}</span>
+                            <span
+                                class="confidence-dot confidence--{win.confidence}"
+                            ></span>
+                        </div>
+                        <p class="win-context">{win.context}</p>
+                        {#if onSelect}
+                            <span class="evidence-link">View evidence →</span>
+                        {/if}
+                    </button>
                 </li>
             {/each}
         </ul>
@@ -76,10 +89,36 @@ const { wins }: Props = $props();
     }
 
     .win-item {
+        display: block;
+        width: 100%;
+        text-align: left;
+        font: inherit;
         padding: var(--space-4);
         background: #f0fdf4;
-        border-radius: var(--radius-sm);
+        border: none;
         border-left: 3px solid #22c55e;
+        border-radius: var(--radius-sm);
+    }
+
+    .win-item.clickable {
+        cursor: pointer;
+        transition: background 0.15s ease;
+    }
+
+    .win-item.clickable:hover {
+        background: #dcfce7;
+    }
+
+    .win-item:disabled {
+        cursor: default;
+    }
+
+    .evidence-link {
+        display: inline-block;
+        margin-top: var(--space-2);
+        font-size: var(--text-xs, 0.75rem);
+        font-weight: 600;
+        color: #166534;
     }
 
     .win-header {

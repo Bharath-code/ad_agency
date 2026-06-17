@@ -6,6 +6,7 @@ type ResultWithTranscript = {
 	queryText: string;
 	position: 'primary' | 'secondary' | 'not_mentioned';
 	confidence: 'high' | 'medium' | 'low';
+	model?: string;
 	rawResponse?: string;
 	createdAt: number;
 };
@@ -16,6 +17,14 @@ type Props = {
 
 const { data }: Props = $props();
 let expandedId = $state<string | null>(null);
+
+function formatModelName(model?: string) {
+	if (!model || model === 'unknown') return 'the configured model';
+	if (model === 'consensus') return 'multiple models (consensus)';
+	if (model === 'openai') return 'OpenAI';
+	if (model === 'claude') return 'Anthropic Claude';
+	return model;
+}
 
 function toggleExpand(queryText: string) {
 	if (expandedId === queryText) {
@@ -76,8 +85,9 @@ function formatJSON(jsonString?: string) {
                             <pre>{formatJSON(item.rawResponse)}</pre>
                         </div>
                         <p class="verification-note">
-                            <ExternalLink size={12} /> Verified output from OpenAI
-                            GPT-4o-mini
+                            <ExternalLink size={12} /> Verified output from {formatModelName(
+                                item.model,
+                            )}
                         </p>
                     </div>
                 {/if}
