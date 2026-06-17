@@ -43,7 +43,7 @@ let mobileMenuOpen = $state(false);
             {:else}
                 <a href="/login" class="nav-link login-link">Log In</a>
                 <Button.Root variant="brand" class="nav-cta" href="/login"
-                    >Run Free Scan</Button.Root
+                    >Run diagnostic</Button.Root
                 >
             {/if}
         </div>
@@ -98,7 +98,7 @@ let mobileMenuOpen = $state(false);
                     onclick={() => (mobileMenuOpen = false)}>Log In</a
                 >
                 <Button.Root variant="brand" class="mobile-cta" href="/login"
-                    >Run Free Scan</Button.Root
+                    >Run diagnostic</Button.Root
                 >
             {/if}
         </div>
