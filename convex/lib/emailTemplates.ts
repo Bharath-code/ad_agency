@@ -108,7 +108,7 @@ export function weeklyReportTemplate(data: WeeklyReportData): string {
 	</div>
 
 	<div style="padding: 24px; text-align: center; color: #71717a; font-size: 12px;">
-		<p style="margin: 0 0 8px;">AI Visibility Intelligence</p>
+		<p style="margin: 0 0 8px;">PromptLens</p>
 		<p style="margin: 0;">You're receiving this because you have weekly reports enabled.</p>
 	</div>
 </body>
@@ -126,7 +126,7 @@ export function welcomeEmailTemplate(name: string, dashboardUrl: string): string
 </head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #18181b; max-width: 600px; margin: 0 auto; padding: 20px;">
 	<div style="background: linear-gradient(135deg, #ea580c 0%, #fb923c 100%); color: white; padding: 32px; border-radius: 12px 12px 0 0;">
-		<h1 style="margin: 0;">Welcome to AI Visibility Intelligence!</h1>
+		<h1 style="margin: 0;">Welcome to PromptLens!</h1>
 	</div>
 
 	<div style="background: #fafafa; padding: 32px; border: 1px solid #e4e4e7; border-top: none;">
@@ -146,7 +146,7 @@ export function welcomeEmailTemplate(name: string, dashboardUrl: string): string
 	</div>
 
 	<div style="padding: 24px; text-align: center; color: #71717a; font-size: 12px;">
-		<p style="margin: 0;">AI Visibility Intelligence</p>
+		<p style="margin: 0;">PromptLens</p>
 	</div>
 </body>
 </html>

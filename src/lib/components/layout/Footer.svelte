@@ -9,10 +9,10 @@ import { Eye, Github, Linkedin, Twitter } from 'lucide-svelte';
                 <div class="logo-icon">
                     <Eye size={20} aria-hidden="true" />
                 </div>
-                <span>AVI</span>
+                <span>PromptLens</span>
             </div>
             <p class="tagline">
-                The intelligence layer for the AI decision era.
+                See why AI recommends competitors instead of you.
             </p>
             <div class="social-links">
                 <a
@@ -43,12 +43,12 @@ import { Eye, Github, Linkedin, Twitter } from 'lucide-svelte';
             <div class="link-group">
                 <h4>Product</h4>
                 <a href="/#pricing">Pricing</a>
-                <a href="https://docs.aivis.io">Documentation</a>
+                <a href="https://docs.promptlens.dev">Documentation</a>
                 <a href="/app/dashboard">Dashboard</a>
             </div>
             <div class="link-group">
                 <h4>Support</h4>
-                <a href="mailto:support@aivis.io">Contact</a>
+                <a href="mailto:support@promptlens.dev">Contact</a>
                 <a href="https://github.com">GitHub</a>
             </div>
             <div class="link-group">
@@ -59,7 +59,7 @@ import { Eye, Github, Linkedin, Twitter } from 'lucide-svelte';
         </div>
     </div>
     <div class="footer-bottom container">
-        <p>© 2026 AI Visibility Intelligence • Privacy • Terms • Contact</p>
+        <p>© 2026 PromptLens • Privacy • Terms • Contact</p>
         <div class="status">
             <div class="status-dot"></div>
             Systems operational

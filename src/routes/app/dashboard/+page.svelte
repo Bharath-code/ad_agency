@@ -265,11 +265,11 @@
 				};
 				transcriptData = [
 					{
-						queryText: "What is AVI?",
+						queryText: "What is PromptLens?",
 						position: "secondary",
 						confidence: "medium",
 						rawResponse:
-							'{"summary":"AVI is a professional visibility tool."}',
+							'{"summary":"PromptLens is an AI recommendation diagnostics tool."}',
 						createdAt: Date.now(),
 					},
 				];

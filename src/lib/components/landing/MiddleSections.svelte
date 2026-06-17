@@ -145,8 +145,8 @@
                         Turn AI Mentions Into Measurable Growth
                     </h2>
                     <p class="section-desc">
-                        AVI monitors answers across assistants, ranks your share
-                        of voice, and tells you exactly what to change.
+                        PromptLens scans buyer prompts across assistants, shows
+                        which competitors win, and tells you exactly what to change.
                     </p>
 
                     <ul class="solution-list">
@@ -206,7 +206,7 @@
                                 <span class="dot yellow"></span>
                                 <span class="dot green"></span>
                             </div>
-                            <span class="preview-title">AVI Dashboard</span>
+                            <span class="preview-title">PromptLens Dashboard</span>
                         </div>
                         <div class="preview-body">
                             <div class="preview-score">

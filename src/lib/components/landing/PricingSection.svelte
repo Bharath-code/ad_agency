@@ -69,8 +69,8 @@
 
     const faqs: Faq[] = [
         {
-            q: "What is AI Visibility Intelligence?",
-            a: "Get a measurement of how AI assistants describe and rank your product across high-intent prompts, translated into a prioritized fix plan.",
+            q: "What is PromptLens?",
+            a: "PromptLens is an AI recommendation diagnostics tool. It scans the buyer prompts your customers ask AI assistants, shows which competitors get recommended instead of you, explains why, and turns each miss into a prioritized fix.",
         },
         {
             q: "How do you gather the data?",
@@ -94,7 +94,7 @@
         },
         {
             q: "How is this different from using AI writing tools?",
-            a: "AI writing tools help you create content. AVI tells you what to change so AI assistants actually recommend you. We identify the specific gaps causing you to be overlooked—not just what to say, but why competitors get picked over you.",
+            a: "AI writing tools help you create content. PromptLens tells you what to change so AI assistants actually recommend you. We identify the specific gaps causing you to be overlooked—not just what to say, but why competitors get picked over you.",
         },
     ];
 

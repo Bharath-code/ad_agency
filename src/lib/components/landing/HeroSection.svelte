@@ -11,9 +11,9 @@ import ScrollReveal from '$lib/components/ui/scroll-reveal.svelte';
 let url = $state('');
 
 const heroBullets = [
-	'Track your AI share of voice across high-intent prompts.',
-	'See why assistants rank competitors above you.',
-	'Get a weekly fix list tied to messaging, docs, and product pages.',
+	'See which buyer prompts recommend competitors instead of you.',
+	'Understand exactly why assistants rank competitors above you.',
+	'Get a prioritized fix list tied to messaging, content, and positioning.',
 ];
 </script>
 
@@ -28,19 +28,19 @@ const heroBullets = [
                             class="gap-2 rounded-full px-4 py-1.5 bg-white border-slate-200 text-slate-600 shadow-sm hover:border-brand/30"
                         >
                             <span class="badge-dot"></span>
-                            AI VISIBILITY SCAN - TRACKING 6 MAJOR ASSISTANTS
+                            AI RECOMMENDATION DIAGNOSTICS - SCANNING 6 MAJOR ASSISTANTS
                         </Badge>
                     </div>
 
                     <h1 class="hero-title">
-                        Own Your Position in
-                        <span class="text-gradient">AI Recommendations</span>
+                        See Why AI Recommends
+                        <span class="text-gradient">Competitors, Not You</span>
                     </h1>
 
                     <p class="hero-subtitle">
-                        AI assistants influence every buying journey. AVI
-                        shows you how they describe you and what to change
-                        to win more mentions.
+                        When buyers ask ChatGPT and Claude for tools like
+                        yours, PromptLens shows which competitors win, why
+                        they win, and the exact fixes to ship next.
                     </p>
 
                     <ul class="hero-bullets">
@@ -83,7 +83,7 @@ const heroBullets = [
                                     class="scan-btn h-12 px-8 font-bold"
                                     href="/login"
                                 >
-                                    Get Free AI Score
+                                    Run Diagnostic
                                     <ArrowRight
                                         size={18}
                                         class="ml-2"
