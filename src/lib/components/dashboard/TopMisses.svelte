@@ -65,11 +65,11 @@ const { misses }: Props = $props();
         font-size: var(--text-base);
         font-weight: 600;
         margin-bottom: var(--space-4);
-        color: #991b1b;
+        color: var(--color-signal-miss);
     }
 
     :global(.title-icon) {
-        color: #ef4444;
+        color: var(--color-signal-miss);
     }
 
     .no-data {
@@ -86,9 +86,9 @@ const { misses }: Props = $props();
 
     .miss-item {
         padding: var(--space-4);
-        background: #fef2f2;
+        background: #faf2e3;
         border-radius: var(--radius-sm);
-        border-left: 3px solid #ef4444;
+        border-left: 3px solid var(--color-signal-miss);
     }
 
     .miss-header {

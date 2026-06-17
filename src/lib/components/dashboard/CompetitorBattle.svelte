@@ -179,10 +179,10 @@ const { data }: Props = $props();
     }
 
     .win-rate .value.danger {
-        color: #ef4444;
+        color: var(--color-signal-miss);
     }
     .win-rate .value.warning {
-        color: #f59e0b;
+        color: var(--color-signal-miss);
     }
 
     .battle-body h5 {

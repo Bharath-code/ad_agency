@@ -116,9 +116,23 @@
 		return () => unsubUser();
 	});
 
+	const BYPASS = import.meta.env.VITE_BYPASS_AUTH === "true";
+
+	// In sandbox/bypass mode, don't let a dead backend hang the UI forever —
+	// time out so the mock-data fallback can render.
+	function withTimeout<T>(p: Promise<T>, ms = 2000): Promise<T> {
+		if (!BYPASS) return p;
+		return Promise.race([
+			p,
+			new Promise<T>((_, reject) =>
+				setTimeout(() => reject(new Error("sandbox timeout")), ms),
+			),
+		]);
+	}
+
 	async function loadProjects(_userId: unknown) {
 		try {
-			const userProjects = await convex.query(api.projects.list, {});
+			const userProjects = await withTimeout(convex.query(api.projects.list, {}));
 			projects = userProjects;
 
 			if (userProjects.length > 0) {
@@ -154,20 +168,22 @@
 		try {
 			// Load all data in parallel
 			const [summary, competitors, transcripts, comparisons] =
-				await Promise.all([
-					convex.query(api.results.getDashboardSummary, {
-						projectId,
-					}),
-					convex.query(api.results.getCompetitorComparison, {
-						projectId,
-					}),
-					convex.query(api.results.getResultsWithTranscripts, {
-						projectId,
-					}),
-					convex.query(api.results.getModelComparison, {
-						projectId,
-					}),
-				]);
+				await withTimeout(
+					Promise.all([
+						convex.query(api.results.getDashboardSummary, {
+							projectId,
+						}),
+						convex.query(api.results.getCompetitorComparison, {
+							projectId,
+						}),
+						convex.query(api.results.getResultsWithTranscripts, {
+							projectId,
+						}),
+						convex.query(api.results.getModelComparison, {
+							projectId,
+						}),
+					]),
+				);
 
 			dashboardData = summary;
 			competitorData = competitors;
