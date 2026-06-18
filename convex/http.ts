@@ -1,7 +1,7 @@
 import { httpRouter } from 'convex/server';
 import { internal } from './_generated/api';
 import { httpAction } from './_generated/server';
-import { parseWebhookEvent, verifyWebhookSignature } from './lib/dodo';
+import { deriveWebhookEventId, parseWebhookEvent, verifyWebhookSignature } from './lib/dodo';
 import type { WebhookEvent } from './lib/dodo';
 
 const http = httpRouter();
@@ -46,12 +46,7 @@ http.route({
 		}
 
 		// Prefer the provider event ID. Fall back to stable payload fields so retries remain idempotent.
-		const eventId =
-			event.id ??
-			event.event_id ??
-			(data?.subscription_id && eventType
-				? `${eventType}:${data.subscription_id}:${data?.status ?? ''}`
-				: `${eventType}:${customerEmail}:${data?.current_period_end ?? data?.status ?? 'unknown'}`);
+		const eventId = deriveWebhookEventId(event);
 
 		// Check if already processed (idempotency)
 		const alreadyProcessed = await ctx.runQuery(internal.payments.isWebhookProcessed, {

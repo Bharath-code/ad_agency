@@ -177,44 +177,8 @@ export function generateIntentQueries(vars: IntentQueryVars): GeneratedIntentQue
 }
 
 /**
- * Pricing tiers — display values aligned with PLAN_LIMITS in dodo.ts
+ * Pricing/plan tiers — re-exported from the pure entitlements core
+ * (single source of truth reconciled in Phase 9).
  */
-export const PRICING_TIERS = {
-	free: {
-		name: 'Free',
-		price: 0,
-		maxScans: 5,
-		maxProjects: 1,
-		maxCompetitors: 2,
-		maxQueries: 10,
-		features: ['5 scans total', '1 project', '2 competitors', 'Basic visibility data'],
-	},
-	indie: {
-		name: 'Indie',
-		price: 49,
-		maxScans: -1, // unlimited
-		maxProjects: 1,
-		maxCompetitors: 3,
-		maxQueries: 30,
-		features: ['Unlimited scans', '1 project', '3 competitors', 'Full history', 'Weekly reports'],
-	},
-	startup: {
-		name: 'Startup',
-		price: 149,
-		maxScans: -1, // unlimited
-		maxProjects: 5,
-		maxCompetitors: 10,
-		maxQueries: 100,
-		features: [
-			'Unlimited scans',
-			'5 projects',
-			'10 competitors',
-			'Full history',
-			'Weekly reports',
-			'Priority support',
-		],
-	},
-} as const;
-
-export type PlanType = keyof typeof PRICING_TIERS;
+export { PLAN_PRICING, PLAN_LIMITS, type PlanType } from './entitlements';
 

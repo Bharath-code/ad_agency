@@ -32,8 +32,8 @@ so context stays clean. Repeat this loop for every phase:
 - [x] **Phase 6 — Competitor win/loss dashboard** — branch `feat/phase-6-competitor-winloss`
 - [x] **Phase 7 — Recommendation action queue** — branch `feat/phase-7-action-queue`
 - [x] **Phase 8 — Weekly report & retention** — branch `feat/phase-8-weekly-report`
-- [ ] **Phase 9 — Billing & entitlements** (reconcile the 3-way pricing inconsistency here) ← NEXT
-- [ ] **Phase 10 — Agency reports**
+- [x] **Phase 9 — Billing & entitlements** — branch `feat/phase-9-billing` (4-tier ladder reconciled: free/$99/$249/$799)
+- [ ] **Phase 10 — Agency reports** ← NEXT
 
 > Note: the original numbered "Phase 1: Rename" is done (tracked above as Phase 0 + the redesign).
 > Numbering below keeps the original document's phase numbers.
@@ -223,11 +223,23 @@ Finalize plan limits, upgrade prompts, webhook handling, and gated features.
 
 ### Acceptance Criteria
 
-- [ ] Free diagnostic is capped.
-- [ ] Paid plans unlock recurring scans and transcripts.
-- [ ] Agency plan unlocks multi-project workflows.
-- [ ] Webhook signature verification and idempotency are tested.
-- [ ] UI clearly explains plan limits before blocking actions.
+- [x] Free diagnostic is capped. (`canScan` / free = 5 scans, enforced in `scans.ts`)
+- [x] Paid plans unlock recurring scans and transcripts. (`recurringScans` gates auto-scan cron;
+      `transcripts` gates `results.getResultsWithTranscripts` + dashboard upgrade prompt)
+- [x] Agency plan unlocks multi-project workflows. (project caps free/starter 1 · growth 5 · agency 25;
+      `canCreateProject` in `projects.ts`. Top paid tier = agency, per user decision.)
+- [x] Webhook signature verification and idempotency are tested. (`tests/unit/dodo.test.ts` — 19 tests:
+      HMAC verify valid/tampered/wrong-secret/prefixed + `deriveWebhookEventId` retry-stability)
+- [x] UI clearly explains plan limits before blocking actions. (billing page 4-tier cards w/ limits +
+      usage; dashboard transcript-lock notice; scan/project blocks throw upgrade-worded errors)
+
+> **Pricing reconciled (user decision):** the 3-way inconsistency is resolved to the strategy-doc
+> 4-tier ladder — **free $0 / starter $99 / growth $249 / agency $799**. Single source of truth is the
+> pure `convex/lib/entitlements.ts` (limits + feature flags + pricing copy); `dodo.ts` and `constants.ts`
+> re-export from it. Plan literals renamed across schema/webhook/UI (`indie/startup` → `starter/growth`,
+> plus new `agency`). **Schema migration note:** the `users.plan` / `subscriptions.plan` unions changed;
+> any pre-existing `indie`/`startup` rows must be migrated to the new literals before deploy (no real
+> data pre-launch; codegen/deploy not run in this session).
 
 ---
 

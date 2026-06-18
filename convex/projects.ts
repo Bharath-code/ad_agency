@@ -2,7 +2,7 @@ import { v } from 'convex/values';
 import { internalMutation, internalQuery, mutation, query } from './_generated/server';
 import { requireProjectOwner, requireUser } from './lib/auth';
 import { generateIntentQueries, PROMPT_LIBRARY_VERSION } from './lib/constants';
-import type { PLAN_LIMITS } from './lib/dodo';
+import { canCreateProject, projectLimit } from './lib/entitlements';
 import { validateProjectUrl } from './lib/utils';
 
 const MAX_USE_CASE_LENGTH = 200;
@@ -107,7 +107,6 @@ export const create = mutation({
 		}
 
 		const user = await requireUser(ctx);
-		const plan = user.plan as keyof typeof PLAN_LIMITS;
 
 		// Count existing projects
 		const existingProjects = await ctx.db
@@ -115,12 +114,9 @@ export const create = mutation({
 			.withIndex('by_user', (q) => q.eq('userId', user._id))
 			.collect();
 
-		const PROJECT_LIMITS = { free: 1, indie: 1, startup: 5 };
-		const projectLimit = PROJECT_LIMITS[plan];
-
-		if (existingProjects.length >= projectLimit) {
+		if (!canCreateProject(user.plan, existingProjects.length)) {
 			throw new Error(
-				`Project limit reached (${projectLimit}). Upgrade your plan to create more projects.`,
+				`Project limit reached (${projectLimit(user.plan)}). Upgrade your plan to create more projects.`,
 			);
 		}
 

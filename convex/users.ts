@@ -1,6 +1,7 @@
 import { v } from 'convex/values';
 import { internalMutation, internalQuery, mutation, query } from './_generated/server';
 import { requireUser } from './lib/auth';
+import { PAID_PLANS } from './lib/entitlements';
 
 /**
  * Get current authenticated user
@@ -72,7 +73,12 @@ export const createOrGetUser = mutation({
 export const updateUserPlan = internalMutation({
 	args: {
 		userId: v.id('users'),
-		plan: v.union(v.literal('free'), v.literal('indie'), v.literal('startup')),
+		plan: v.union(
+			v.literal('free'),
+			v.literal('starter'),
+			v.literal('growth'),
+			v.literal('agency'),
+		),
 	},
 	handler: async (ctx, args) => {
 		await ctx.db.patch(args.userId, { plan: args.plan });
@@ -112,22 +118,20 @@ export const getById = internalQuery({
 });
 
 /**
- * List all users on paid plans (indie or startup)
+ * List all users on paid plans (starter, growth, or agency)
  */
 export const listPaid = internalQuery({
 	args: {},
 	handler: async (ctx) => {
-		const [indieUsers, startupUsers] = await Promise.all([
-			ctx.db
-				.query('users')
-				.withIndex('by_plan', (q) => q.eq('plan', 'indie'))
-				.collect(),
-			ctx.db
-				.query('users')
-				.withIndex('by_plan', (q) => q.eq('plan', 'startup'))
-				.collect(),
-		]);
+		const lists = await Promise.all(
+			PAID_PLANS.map((plan) =>
+				ctx.db
+					.query('users')
+					.withIndex('by_plan', (q) => q.eq('plan', plan))
+					.collect(),
+			),
+		);
 
-		return [...indieUsers, ...startupUsers];
+		return lists.flat();
 	},
 });

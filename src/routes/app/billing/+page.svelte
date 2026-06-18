@@ -1,5 +1,5 @@
 <script lang="ts">
-import { Check, Crown, Loader2, Zap } from 'lucide-svelte';
+import { Building2, Check, Crown, Loader2, Zap } from 'lucide-svelte';
 import { onMount } from 'svelte';
 import { page } from '$app/stores';
 import { api } from '$convex/_generated/api';
@@ -11,8 +11,11 @@ type SubscriptionDetails = {
 	status: string;
 };
 
+type PaidPlanId = 'starter' | 'growth' | 'agency';
+type PlanId = 'free' | PaidPlanId;
+
 type BillingSubscription = {
-	plan: 'free' | 'indie' | 'startup';
+	plan: PlanId;
 	subscription: SubscriptionDetails | null;
 	limits: {
 		scans: number;
@@ -66,7 +69,7 @@ async function loadSubscription() {
 	}
 }
 
-async function handleUpgrade(plan: 'indie' | 'startup') {
+async function handleUpgrade(plan: PaidPlanId) {
 	isUpgrading = plan;
 	try {
 		const result = await convex.action(api.payments.createCheckout, {
@@ -93,40 +96,59 @@ async function handleCancel() {
 	}
 }
 
-const plans = [
+const plans: {
+	id: PlanId;
+	name: string;
+	price: string;
+	period: string;
+	featured?: boolean;
+	features: string[];
+}[] = [
 	{
 		id: 'free',
 		name: 'Free',
 		price: '$0',
 		period: 'forever',
-		features: ['5 scans total', '2 competitors', '10 intent queries', 'Basic dashboard'],
+		features: ['1 project', '10 intent queries', '5 scans total', 'Snapshot report'],
 	},
 	{
-		id: 'indie',
-		name: 'Indie',
-		price: '$49',
+		id: 'starter',
+		name: 'Starter',
+		price: '$99',
 		period: '/month',
-		featured: true,
 		features: [
-			'100 scans/month',
-			'3 competitors',
+			'1 project',
 			'30 intent queries',
+			'Unlimited scans',
+			'Raw transcripts & evidence',
 			'Weekly reports',
-			'Email support',
 		],
 	},
 	{
-		id: 'startup',
-		name: 'Startup',
-		price: '$149',
+		id: 'growth',
+		name: 'Growth',
+		price: '$249',
+		period: '/month',
+		featured: true,
+		features: [
+			'5 projects',
+			'75 intent queries/project',
+			'Multi-model consensus',
+			'Competitor win/loss tracking',
+			'Prioritized fix plan',
+		],
+	},
+	{
+		id: 'agency',
+		name: 'Agency',
+		price: '$799',
 		period: '/month',
 		features: [
-			'Unlimited scans',
-			'10 competitors',
-			'100 intent queries',
-			'Weekly reports',
+			'25 projects',
+			'Everything in Growth',
+			'Client-ready reports',
+			'White-label exports',
 			'Priority support',
-			'Team access (soon)',
 		],
 	},
 ];
@@ -201,10 +223,12 @@ const plans = [
                         {/if}
 
                         <div class="plan-header">
-                            {#if plan.id === "indie"}
+                            {#if plan.id === "starter"}
                                 <Zap size={24} class="plan-icon" />
-                            {:else if plan.id === "startup"}
+                            {:else if plan.id === "growth"}
                                 <Crown size={24} class="plan-icon" />
+                            {:else if plan.id === "agency"}
+                                <Building2 size={24} class="plan-icon" />
                             {/if}
                             <h3>{plan.name}</h3>
                         </div>
@@ -227,9 +251,7 @@ const plans = [
                             <button
                                 class="btn-saas btn-saas-primary"
                                 onclick={() =>
-                                    handleUpgrade(
-                                        plan.id as "indie" | "startup",
-                                    )}
+                                    handleUpgrade(plan.id as PaidPlanId)}
                                 disabled={isUpgrading !== null}
                             >
                                 {#if isUpgrading === plan.id}

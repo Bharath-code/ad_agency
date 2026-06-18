@@ -7,13 +7,21 @@ import {
 	PLAN_LIMITS,
 	PRODUCT_IDS,
 } from './lib/dodo';
+import { canScan, type PlanType } from './lib/entitlements';
+
+/** Map a DodoPayments product/plan id back to our plan literal. */
+function planFromProductId(planId: string | undefined): Exclude<PlanType, 'free'> {
+	if (planId === PRODUCT_IDS.agency) return 'agency';
+	if (planId === PRODUCT_IDS.growth) return 'growth';
+	return 'starter';
+}
 
 /**
  * Create checkout session for subscription upgrade
  */
 export const createCheckout = action({
 	args: {
-		plan: v.union(v.literal('indie'), v.literal('startup')),
+		plan: v.union(v.literal('starter'), v.literal('growth'), v.literal('agency')),
 	},
 	handler: async (ctx, args) => {
 		const identity = await ctx.auth.getUserIdentity();
@@ -84,7 +92,7 @@ export const handleWebhook = internalMutation({
 			case 'subscription.created':
 			case 'subscription.updated': {
 				// Determine plan from product ID
-				const plan = args.planId === PRODUCT_IDS.startup ? 'startup' : 'indie';
+				const plan = planFromProductId(args.planId);
 
 				// Check for existing subscription
 				const existing = await ctx.db
@@ -172,7 +180,7 @@ export const getSubscription = query({
 			subscription,
 			limits: PLAN_LIMITS[user.plan],
 			scansUsed: user.scansUsed,
-			canScan: user.plan === 'free' ? user.scansUsed < PLAN_LIMITS.free.scans : true,
+			canScan: canScan(user.plan, user.scansUsed),
 		};
 	},
 });
