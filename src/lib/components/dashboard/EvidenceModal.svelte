@@ -1,13 +1,57 @@
 <script lang="ts">
 import type { PromptEvidence } from "$convex/lib/evidence";
-import { Cpu, FileText, Target, Wrench, X } from "lucide-svelte";
+import type { ActionType } from "$convex/lib/actionQueue";
+import { Cpu, FileText, ListPlus, Target, Wrench, X } from "lucide-svelte";
+
+type CreateActionInput = {
+	queryId: string;
+	type: ActionType;
+	title: string;
+	detail?: string;
+};
 
 type Props = {
 	evidence: PromptEvidence | null;
 	onClose: () => void;
+	onCreateAction?: (input: CreateActionInput) => void;
 };
 
-const { evidence, onClose }: Props = $props();
+const { evidence, onClose, onCreateAction }: Props = $props();
+
+const ACTION_OPTIONS: Array<{ type: ActionType; label: string }> = [
+	{ type: "positioning", label: "Positioning" },
+	{ type: "content", label: "Content" },
+	{ type: "proof", label: "Proof" },
+	{ type: "comparison", label: "Comparison" },
+	{ type: "source", label: "Source / citation" },
+];
+
+// Pre-fill the action's detail from the most relevant recommended fix.
+function suggestedDetail(type: ActionType, ev: PromptEvidence): string | undefined {
+	if (type === "positioning") return ev.fixes.positioningFix;
+	if (type === "content" || type === "comparison") return ev.fixes.contentSuggestion;
+	if (type === "proof") return ev.fixes.messagingFix;
+	return undefined;
+}
+
+let lastCreated = $state<ActionType | null>(null);
+
+// Reset the "added" hint whenever a different prompt is opened.
+$effect(() => {
+	void evidence?.queryId;
+	lastCreated = null;
+});
+
+function createAction(type: ActionType, label: string) {
+	if (!evidence || !onCreateAction) return;
+	onCreateAction({
+		queryId: evidence.queryId,
+		type,
+		title: `${label}: ${evidence.queryText}`,
+		detail: suggestedDetail(type, evidence),
+	});
+	lastCreated = type;
+}
 
 function positionLabel(position: PromptEvidence["position"]) {
 	if (position === "primary") return "Recommended (primary)";
@@ -134,6 +178,26 @@ const hasFixes = $derived(
 								<dd>{evidence.fixes.messagingFix}</dd>
 							{/if}
 						</dl>
+					</section>
+				{/if}
+
+				{#if onCreateAction}
+					<section class="block">
+						<h3 class="block-title"><ListPlus size={15} /> Turn into an action</h3>
+						<div class="action-buttons">
+							{#each ACTION_OPTIONS as opt}
+								<button
+									type="button"
+									class="action-btn"
+									onclick={() => createAction(opt.type, opt.label)}
+								>
+									{opt.label}
+								</button>
+							{/each}
+						</div>
+						{#if lastCreated}
+							<p class="action-added">Added to your action queue.</p>
+						{/if}
 					</section>
 				{/if}
 
@@ -364,6 +428,38 @@ const hasFixes = $derived(
 	.fixes dd {
 		color: var(--color-foreground, #1c1b16);
 		line-height: 1.5;
+	}
+
+	.action-buttons {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--space-2);
+	}
+
+	.action-btn {
+		font-size: 0.8rem;
+		font-weight: 600;
+		padding: 0.35rem 0.7rem;
+		border: 1px solid var(--color-primary, #0c5d4d);
+		border-radius: 999px;
+		background: transparent;
+		color: var(--color-primary, #0c5d4d);
+		cursor: pointer;
+		transition:
+			background 0.12s ease,
+			color 0.12s ease;
+	}
+
+	.action-btn:hover,
+	.action-btn:focus-visible {
+		background: var(--color-primary, #0c5d4d);
+		color: var(--color-background, #faf9f5);
+	}
+
+	.action-added {
+		margin-top: var(--space-2);
+		font-size: 0.78rem;
+		color: var(--color-primary, #0c5d4d);
 	}
 
 	.trust-note {

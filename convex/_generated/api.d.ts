@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as actionItems from "../actionItems.js";
 import type * as competitors from "../competitors.js";
 import type * as cache from "../cache.js";
 import type * as crons from "../crons.js";
@@ -32,6 +33,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  actionItems: typeof actionItems;
   cache: typeof cache;
   competitors: typeof competitors;
   crons: typeof crons;

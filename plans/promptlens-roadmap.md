@@ -30,8 +30,8 @@ so context stays clean. Repeat this loop for every phase:
 - [x] **Phase 4 — Multi-model confidence** — branch `feat/phase-4-multi-model`
 - [x] **Phase 5 — Evidence viewer** — branch `feat/phase-5-evidence-viewer`
 - [x] **Phase 6 — Competitor win/loss dashboard** — branch `feat/phase-6-competitor-winloss`
-- [ ] **Phase 7 — Recommendation action queue** ← NEXT
-- [ ] **Phase 8 — Weekly report & retention**
+- [x] **Phase 7 — Recommendation action queue** — branch `feat/phase-7-action-queue`
+- [ ] **Phase 8 — Weekly report & retention** ← NEXT
 - [ ] **Phase 9 — Billing & entitlements** (reconcile the 3-way pricing inconsistency here)
 - [ ] **Phase 10 — Agency reports**
 
@@ -183,11 +183,11 @@ Create action items from missed prompts and let users track them from recommenda
 
 ### Acceptance Criteria
 
-- [ ] Each missed prompt can create positioning, content, proof, comparison, or source/citation action items.
-- [ ] Actions have planned, shipped, ignored, and archived statuses.
-- [ ] Actions link to prompt evidence.
-- [ ] Dashboard highlights top 3 priority actions.
-- [ ] After re-scan, shipped actions show before/after prompt movement.
+- [x] Each missed prompt can create positioning, content, proof, comparison, or source/citation action items.
+- [x] Actions have planned, shipped, ignored, and archived statuses.
+- [x] Actions link to prompt evidence.
+- [x] Dashboard highlights top 3 priority actions.
+- [x] After re-scan, shipped actions show before/after prompt movement.
 
 ---
 

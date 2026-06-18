@@ -92,10 +92,24 @@ See `plans/promptlens-roadmap.md` → "Execution Protocol" + "Status Tracker" fo
   (6), `tests/unit/competitorWinLoss.test.ts` (5). Decision: reason grouping is normalized exact-match, not
   semantic/LLM clustering (out of scope).
 
-**Next up: Phase 7 — Recommendation action queue.** Branch `feat/phase-7-action-queue`. Turn missed prompts into
-trackable action items (positioning/content/proof/comparison/source) with planned/shipped/ignored/archived
-statuses, evidence links, top-3 priority surfacing, and before/after movement after re-scan. See
-`plans/promptlens-roadmap.md` → "Phase 7".
+- **Phase 7 — Recommendation action queue** (branch `feat/phase-7-action-queue`): new `actionItems` table
+  (no change to existing tables) + the established "pure core + thin Convex shell". Pure
+  `convex/lib/actionQueue.ts` (`buildActionQueue`, `computeMovement`, `scoreActionPriority`, `positionRank`)
+  joins each action to the latest scan's standing for its prompt, scores priority, and surfaces the top 3
+  **planned** actions. `convex/actionItems.ts`: `create` (captures the prompt's current position as
+  `baselinePosition`/`baselineScanId` so re-scans can show before/after), `updateStatus` (stamps `shippedAt`
+  on first ship), `list` (returns the `ActionQueueView`). Priority is **derived by impact** (user choice):
+  `positionWeight(not_mentioned=3/secondary=1) + confidenceWeight(high=2/med=1) + competitorPresence(1)` — no
+  manual priority field. Movement reads as **"awaiting re-scan"** until a scan newer than the baseline exists
+  (latest scanId ≠ `baselineScanId`); shipped actions then show `from → to`. Creation UI lives in the existing
+  `EvidenceModal` ("Turn into an action" — 5 type buttons, detail pre-filled from the matching recommended fix);
+  new `ActionQueue.svelte` shows top priorities + the full list with per-row status `<select>` and movement
+  badges, wired into the **dashboard** only. Tests: `tests/unit/actionQueue.test.ts` (12). Decisions: action
+  creation is permissive (wins can also be tracked; they score 0 so never surface in top-3); reason/movement
+  grouping unchanged. Had to hand-add `actionItems` to `convex/_generated/api.d.ts` (codegen needs deploy creds).
+
+**Next up: Phase 8 — Weekly report & retention.** Branch `feat/phase-8-weekly-report` off latest `main` after
+Phase 7's PR merges. See `plans/promptlens-roadmap.md` → "Phase 8".
 
 **Known open decisions (do not silently resolve):**
 - **Pricing is inconsistent** across three sources — code (`convex/lib/constants.ts`: indie $49 /

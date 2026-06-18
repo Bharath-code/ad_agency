@@ -100,6 +100,47 @@ export default defineSchema({
 		.index('by_project_and_scan', ['projectId', 'scanId'])
 		.index('by_project_createdAt', ['projectId', 'createdAt']),
 
+	// Action Items table (Phase 7 — recommendation action queue)
+	actionItems: defineTable({
+		projectId: v.id('projects'),
+		queryId: v.id('intentQueries'), // the missed prompt this action addresses (→ evidence)
+
+		type: v.union(
+			v.literal('positioning'),
+			v.literal('content'),
+			v.literal('proof'),
+			v.literal('comparison'),
+			v.literal('source'),
+		),
+		title: v.string(),
+		detail: v.optional(v.string()),
+
+		status: v.union(
+			v.literal('planned'),
+			v.literal('shipped'),
+			v.literal('ignored'),
+			v.literal('archived'),
+		),
+
+		// Before/after movement (AC5): the prompt's standing when the action was created.
+		baselinePosition: v.union(
+			v.literal('primary'),
+			v.literal('secondary'),
+			v.literal('not_mentioned'),
+		),
+		baselineScanId: v.optional(v.string()),
+		baselineConfidence: v.optional(
+			v.union(v.literal('high'), v.literal('medium'), v.literal('low')),
+		),
+		competitorAtCreation: v.optional(v.string()),
+
+		createdAt: v.number(),
+		updatedAt: v.number(),
+		shippedAt: v.optional(v.number()),
+	})
+		.index('by_project', ['projectId'])
+		.index('by_project_and_query', ['projectId', 'queryId']),
+
 	// Weekly Reports table
 	weeklyReports: defineTable({
 		projectId: v.id('projects'),
