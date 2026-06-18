@@ -108,8 +108,26 @@ See `plans/promptlens-roadmap.md` → "Execution Protocol" + "Status Tracker" fo
   creation is permissive (wins can also be tracked; they score 0 so never surface in top-3); reason/movement
   grouping unchanged. Had to hand-add `actionItems` to `convex/_generated/api.d.ts` (codegen needs deploy creds).
 
-**Next up: Phase 8 — Weekly report & retention.** Branch `feat/phase-8-weekly-report` off latest `main` after
-Phase 7's PR merges. See `plans/promptlens-roadmap.md` → "Phase 8".
+- **Phase 8 — Weekly report & retention** (branch `feat/phase-8-weekly-report`): completed the partly-scaffolded
+  weekly report flow (cron `send-weekly-reports` → `emails.processAllWeeklyReports` → `sendWeeklyReport` already
+  existed) using the "pure core + thin Convex shell" pattern. NEW pure `convex/lib/weeklyReport.ts`
+  (`buildWeeklyReport`, `selectTopFixes`, `diffCompetitorMentions`) derives the whole payload — score movement,
+  **new competitor wins** (diff of this week's miss-winners vs the previous report, case-insensitive dedup), and
+  top-3 fixes — from the **typed dashboard summary + previous report**, so report generation is unit-testable with
+  no email/DB (acceptance: "works without sending email in tests"). `sendWeeklyReport` now calls the pure builder,
+  wraps `sendEmail` in try/catch, and **always records send status**: `weeklyReports` gained optional
+  `status: 'sent'|'failed'` + `emailError` (no migration — additive/optional); `create` stamps `emailSentAt` only
+  when sent and re-throws on failure (so the cron's per-project catch still logs + skips the processed count).
+  Free users excluded via existing `users.listPaid` (indie/startup only). Also fixed both email templates
+  (`convex/lib/emailTemplates.ts`) from the **forbidden neon-orange gradient → evergreen** per the design system
+  (inlined hexes mirror `app.css` tokens; evergreen=win/up, amber=miss/down). Tests:
+  `tests/unit/weeklyReport.test.ts` (12). No `api.d.ts` hand-edit needed — only existing modules edited + a pure
+  lib; schema field additions flow through `typeof` automatically (verified by `tsc -p convex`). Decision:
+  "new competitor mentions" = miss-winners not in the previous report (not semantic clustering).
+
+**Next up: Phase 9 — Billing & entitlements.** Branch `feat/phase-9-billing` off latest `main` after Phase 8's PR
+merges. **Reconcile the 3-way pricing inconsistency here** (see Known open decisions). See
+`plans/promptlens-roadmap.md` → "Phase 9".
 
 **Known open decisions (do not silently resolve):**
 - **Pricing is inconsistent** across three sources — code (`convex/lib/constants.ts`: indie $49 /

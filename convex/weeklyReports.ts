@@ -27,8 +27,11 @@ export const create = internalMutation({
 		scoreChange: v.number(),
 		newCompetitorMentions: v.array(v.string()),
 		topFixes: v.array(v.string()),
+		status: v.union(v.literal('sent'), v.literal('failed')),
+		emailError: v.optional(v.string()),
 	},
 	handler: async (ctx, args) => {
+		const sent = args.status === 'sent';
 		return ctx.db.insert('weeklyReports', {
 			projectId: args.projectId,
 			userId: args.userId,
@@ -37,7 +40,9 @@ export const create = internalMutation({
 			scoreChange: args.scoreChange,
 			newCompetitorMentions: args.newCompetitorMentions,
 			topFixes: args.topFixes,
-			emailSentAt: Date.now(),
+			status: args.status,
+			emailError: args.emailError,
+			emailSentAt: sent ? Date.now() : undefined,
 			createdAt: Date.now(),
 		});
 	},

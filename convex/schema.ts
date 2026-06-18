@@ -153,6 +153,9 @@ export default defineSchema({
 		newCompetitorMentions: v.array(v.string()),
 		topFixes: v.array(v.string()),
 
+		// Delivery status (Phase 8). Optional so pre-existing rows stay valid.
+		status: v.optional(v.union(v.literal('sent'), v.literal('failed'))),
+		emailError: v.optional(v.string()),
 		emailSentAt: v.optional(v.number()),
 		createdAt: v.number(),
 	}).index('by_project', ['projectId']),

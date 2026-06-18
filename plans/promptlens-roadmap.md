@@ -31,8 +31,8 @@ so context stays clean. Repeat this loop for every phase:
 - [x] **Phase 5 — Evidence viewer** — branch `feat/phase-5-evidence-viewer`
 - [x] **Phase 6 — Competitor win/loss dashboard** — branch `feat/phase-6-competitor-winloss`
 - [x] **Phase 7 — Recommendation action queue** — branch `feat/phase-7-action-queue`
-- [ ] **Phase 8 — Weekly report & retention** ← NEXT
-- [ ] **Phase 9 — Billing & entitlements** (reconcile the 3-way pricing inconsistency here)
+- [x] **Phase 8 — Weekly report & retention** — branch `feat/phase-8-weekly-report`
+- [ ] **Phase 9 — Billing & entitlements** (reconcile the 3-way pricing inconsistency here) ← NEXT
 - [ ] **Phase 10 — Agency reports**
 
 > Note: the original numbered "Phase 1: Rename" is done (tracked above as Phase 0 + the redesign).
@@ -201,11 +201,11 @@ Generate and send weekly reports for paid users with score change, new competito
 
 ### Acceptance Criteria
 
-- [ ] Paid users receive weekly reports.
-- [ ] Free users do not receive paid-plan recurring reports.
-- [ ] Report generation works without sending email in tests.
-- [ ] Email includes dashboard links and top 3 fixes.
-- [ ] Send status and errors are stored.
+- [x] Paid users receive weekly reports.
+- [x] Free users do not receive paid-plan recurring reports.
+- [x] Report generation works without sending email in tests.
+- [x] Email includes dashboard links and top 3 fixes.
+- [x] Send status and errors are stored.
 
 ---
 
