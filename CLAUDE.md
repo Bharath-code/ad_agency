@@ -145,9 +145,27 @@ See `plans/promptlens-roadmap.md` → "Execution Protocol" + "Status Tracker" fo
   Convex module). **Schema migration caveat:** the plan unions changed; pre-existing `indie`/`startup` rows must
   be migrated to the new literals before a real deploy (no prod data pre-launch; codegen/deploy not run here).
 
-**Next up: Phase 10 — Agency reports.** Branch `feat/phase-10-agency-reports` off latest `main` after Phase 9's
-PR merges. Builds on the new `agency` tier + the `clientReports`/`multiProject` feature flags. See
-`plans/promptlens-roadmap.md` → "Phase 10".
+- **Phase 10 — Agency reports** (branch `feat/phase-10-agency-reports`): client-ready share links +
+  white-label exports on the `agency` tier, in the established "pure core + thin Convex shell" pattern.
+  NEW `clientReports` table (token, title, optional `agencyName`, `includeEvidence`/`includeActions`
+  toggles, `revoked`, optional `expiresAt`). Pure `convex/lib/clientReport.ts`: `buildClientReport`
+  (assembles a client-safe payload from already-redacted inputs — score, competitor wins, slim evidence,
+  actions — honoring the toggles), `isReportAccessible` (revoke + optional-expiry gate, user decision),
+  `buildShareToken` (hex-encodes injected random bytes), and `renderReportHtml` (self-contained branded
+  HTML, every value `escapeHtml`'d). Thin shell `convex/clientReports.ts`: `create`/`update`/`revoke`/
+  `list`/`getExport` are owner + `hasFeature('clientReports')` gated; `composeReport` (the single path
+  behind both share + export) builds from typed fields only via `buildCompetitorWinLoss` +
+  `calculateVisibilityScore` — **never** `rawResponse`. **`getShared` is a public, login-free query**
+  keyed by a 128-bit token + `isReportAccessible` — the share boundary. UI: `ClientReportPanel.svelte`
+  (agency-gated, wired into the project detail sidebar — create/copy/revoke/export, upgrade notice for
+  non-agency) + a clean public route `src/routes/r/[token]/+page.svelte` (no app shell, `noindex`,
+  `{}`-escaped). Tests: `tests/unit/clientReport.test.ts` (15). Hand-added `clientReports` to
+  `_generated/api.d.ts` (new Convex module; codegen needs deploy creds). Decisions: share access =
+  revoke + optional expiry; export = self-contained branded HTML (both user choices).
+
+**Next up: roadmap complete (Phases 0–10 all shipped).** No further phases are queued in
+`plans/promptlens-roadmap.md`. Before a real deploy, run Convex codegen/deploy with creds and migrate any
+legacy plan literals (see Phase 9 schema-migration caveat).
 
 **Known open decisions (do not silently resolve):**
 - ~~**Pricing is inconsistent**~~ — **RESOLVED in Phase 9**: strategy-doc 4-tier ladder (free $0 / starter $99 /
