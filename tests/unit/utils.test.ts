@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { PRICING_TIERS } from '../../convex/lib/constants';
 import { parseJSONResponse } from '../../convex/lib/llm/types';
 import {
 	calculateVisibilityScore,
@@ -127,35 +126,6 @@ describe('parseJSONResponse', () => {
 
 	it('throws on invalid JSON', () => {
 		expect(() => parseJSONResponse('not valid json')).toThrow();
-	});
-});
-
-describe('PRICING_TIERS', () => {
-	it('has free, indie, and startup tiers', () => {
-		expect(PRICING_TIERS.free).toBeDefined();
-		expect(PRICING_TIERS.indie).toBeDefined();
-		expect(PRICING_TIERS.startup).toBeDefined();
-	});
-
-	it('free tier has limited scans', () => {
-		expect(PRICING_TIERS.free.maxScans).toBe(5);
-		expect(PRICING_TIERS.free.maxProjects).toBe(1);
-	});
-
-	it('paid tiers have unlimited scans', () => {
-		expect(PRICING_TIERS.indie.maxScans).toBe(-1);
-		expect(PRICING_TIERS.startup.maxScans).toBe(-1);
-	});
-
-	it('startup tier has more projects', () => {
-		expect(PRICING_TIERS.startup.maxProjects).toBe(5);
-		expect(PRICING_TIERS.indie.maxProjects).toBe(1);
-	});
-
-	it('prices are correct', () => {
-		expect(PRICING_TIERS.free.price).toBe(0);
-		expect(PRICING_TIERS.indie.price).toBe(49);
-		expect(PRICING_TIERS.startup.price).toBe(149);
 	});
 });
 

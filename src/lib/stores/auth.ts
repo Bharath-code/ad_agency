@@ -16,7 +16,7 @@ export type User = {
 	email: string;
 	name?: string;
 	avatarUrl?: string;
-	plan: 'free' | 'indie' | 'startup';
+	plan: 'free' | 'starter' | 'growth' | 'agency';
 	scansUsed: number;
 	createdAt: number;
 };
@@ -58,7 +58,7 @@ export async function initAuth(): Promise<void> {
 			_id: 'mock-user-id' as Id<'users'>,
 			email: 'sandbox@example.com',
 			name: 'Sandbox User',
-			plan: 'startup',
+			plan: 'agency',
 			scansUsed: 0,
 			createdAt: Date.now(),
 		});

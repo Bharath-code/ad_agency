@@ -10,6 +10,7 @@ import {
 } from './_generated/server';
 import { requireProjectOwner } from './lib/auth';
 import { type CompetitorWinLoss, buildCompetitorWinLoss } from './lib/competitorWinLoss';
+import { hasFeature } from './lib/entitlements';
 import { type PromptEvidence, toEvidence } from './lib/evidence';
 import { calculateVisibilityScore } from './lib/utils';
 
@@ -265,15 +266,23 @@ export const getHistoricalTrends = query({
 });
 
 /**
- * Get results with raw responses for transcript view
+ * Get results with raw responses for transcript view.
+ * Raw transcripts are a paid feature — free plans get `entitled: false` and no
+ * raw responses, so the dashboard can show an upgrade prompt instead of blocking
+ * silently.
  */
 export const getResultsWithTranscripts = query({
 	args: { projectId: v.id('projects') },
 	handler: async (ctx, args) => {
-		await requireProjectOwner(ctx, args.projectId);
+		const { user } = await requireProjectOwner(ctx, args.projectId);
+		const entitled = hasFeature(user.plan, 'transcripts');
+
+		if (!entitled) {
+			return { entitled, results: [] };
+		}
 
 		const latestResults = await getLatestScanResults(ctx, args.projectId);
-		if (latestResults.length === 0) return [];
+		if (latestResults.length === 0) return { entitled, results: [] };
 
 		const queries = await ctx.db
 			.query('intentQueries')
@@ -281,10 +290,13 @@ export const getResultsWithTranscripts = query({
 			.collect();
 		const queryMap = new Map(queries.map((q) => [q._id, q.query]));
 
-		return latestResults.map((result) => ({
-			...result,
-			queryText: queryMap.get(result.queryId) ?? '',
-		}));
+		return {
+			entitled,
+			results: latestResults.map((result) => ({
+				...result,
+				queryText: queryMap.get(result.queryId) ?? '',
+			})),
+		};
 	},
 });
 

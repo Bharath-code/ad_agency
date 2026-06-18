@@ -125,14 +125,33 @@ See `plans/promptlens-roadmap.md` → "Execution Protocol" + "Status Tracker" fo
   lib; schema field additions flow through `typeof` automatically (verified by `tsc -p convex`). Decision:
   "new competitor mentions" = miss-winners not in the previous report (not semantic clustering).
 
-**Next up: Phase 9 — Billing & entitlements.** Branch `feat/phase-9-billing` off latest `main` after Phase 8's PR
-merges. **Reconcile the 3-way pricing inconsistency here** (see Known open decisions). See
-`plans/promptlens-roadmap.md` → "Phase 9".
+- **Phase 9 — Billing & entitlements** (branch `feat/phase-9-billing`): reconciled the 3-way pricing
+  inconsistency to the **strategy-doc 4-tier ladder — free $0 / starter $99 / growth $249 / agency $799**
+  (user decision; top paid tier = agency for multi-project). NEW pure `convex/lib/entitlements.ts` is the
+  **single source of truth** — `PlanType` (`free|starter|growth|agency`), `PLAN_LIMITS`, `PLAN_FEATURES`
+  (recurringScans/transcripts/weeklyReports/multiProject/clientReports), `PLAN_PRICING`, and helpers
+  (`canScan`, `remainingScans`, `projectLimit`, `canCreateProject`, `hasFeature`, `isPaidPlan`). `dodo.ts`
+  (`PLAN_LIMITS`) + `constants.ts` (`PRICING_TIERS`→`PLAN_PRICING`/`PlanType`) re-export from it; the duplicate
+  `PROJECT_LIMITS` in `projects.ts` and the inline scan/auto-scan gates in `scans.ts` were replaced with the
+  helpers. Plan literals renamed across schema (`users.plan` + `subscriptions.plan` unions), `users`
+  (`updateUserPlan`/`listPaid`), `payments.createCheckout` + webhook mapping (`planFromProductId` via
+  `PRODUCT_IDS` — added `agency`), `auth.ts` store, billing page, landing `PricingSection`. **Transcripts gated
+  to paid** — `results.getResultsWithTranscripts` returns `{ entitled, results }` (free → `entitled:false`,
+  no raw responses); dashboard shows the transcript section or an upgrade notice. **Webhook idempotency made
+  unit-testable** by extracting pure `deriveWebhookEventId` from `http.ts` into `dodo.ts`. Tests:
+  `tests/unit/entitlements.test.ts` (13) + `tests/unit/dodo.test.ts` (19 — HMAC verify + idempotency-key
+  stability); removed the stale `PRICING_TIERS` block from `utils.test.ts`. Verify: `npx vitest run` **142 pass**,
+  `npm run check` **0/0**, `tsc -p convex` clean, `vite build` ✓. No `api.d.ts` hand-edit (pure lib only — no new
+  Convex module). **Schema migration caveat:** the plan unions changed; pre-existing `indie`/`startup` rows must
+  be migrated to the new literals before a real deploy (no prod data pre-launch; codegen/deploy not run here).
+
+**Next up: Phase 10 — Agency reports.** Branch `feat/phase-10-agency-reports` off latest `main` after Phase 9's
+PR merges. Builds on the new `agency` tier + the `clientReports`/`multiProject` feature flags. See
+`plans/promptlens-roadmap.md` → "Phase 10".
 
 **Known open decisions (do not silently resolve):**
-- **Pricing is inconsistent** across three sources — code (`convex/lib/constants.ts`: indie $49 /
-  startup $149), the strategy doc ($99/$249/$799), and the landing page ($79/$199). Reconcile in
-  **Phase 9 (billing)**; surface for the user's decision.
+- ~~**Pricing is inconsistent**~~ — **RESOLVED in Phase 9**: strategy-doc 4-tier ladder (free $0 / starter $99 /
+  growth $249 / agency $799); single source of truth is `convex/lib/entitlements.ts`.
 - The Convex browser client crashes `vite dev` when `PUBLIC_CONVEX_URL` is empty (it can't parse the
   `placeholder` deployment name). Worth an SSR guard later.
 - **Scan cost scales with provider count (since Phase 6).** A scan now runs cross-model for *both* the

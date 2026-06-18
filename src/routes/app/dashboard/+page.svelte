@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { ChevronDown, Plus, Download } from "lucide-svelte";
+	import { ChevronDown, Plus, Download, Lock } from "lucide-svelte";
 	import { onMount } from "svelte";
 	import { api } from "$convex/_generated/api";
 	import type { Id } from "$convex/_generated/dataModel";
@@ -111,6 +111,7 @@
 	let dashboardData = $state<DashboardSummary | null>(null);
 	let competitorData = $state<CompetitorWinLossData | null>(null);
 	let transcriptData = $state<TranscriptResult[]>([]);
+	let transcriptEntitled = $state(true);
 	let modelComparisonData = $state<ModelComparisonData>([]);
 	let evidenceData = $state<PromptEvidence[]>([]);
 	let actionQueueData = $state<ActionQueueView | null>(null);
@@ -221,7 +222,8 @@
 
 			dashboardData = summary;
 			competitorData = competitors;
-			transcriptData = transcripts;
+			transcriptData = transcripts.results;
+			transcriptEntitled = transcripts.entitled;
 			modelComparisonData = comparisons;
 			evidenceData = evidence;
 			actionQueueData = actions;
@@ -855,6 +857,20 @@
 				<div class="transcripts-section">
 					<ResponseTranscript data={transcriptData} />
 				</div>
+			{:else if !transcriptEntitled}
+				<div class="transcripts-section">
+					<div class="transcript-lock">
+						<Lock size={18} aria-hidden="true" />
+						<div class="transcript-lock-copy">
+							<h3>Raw transcripts are a paid feature</h3>
+							<p>
+								Upgrade to Starter or higher to inspect the exact AI responses behind every
+								verdict — the evidence you can show clients.
+							</p>
+						</div>
+						<a class="transcript-lock-cta" href="/app/billing">View plans</a>
+					</div>
+				</div>
 			{/if}
 		</div>
 	{:else}
@@ -959,6 +975,49 @@
 		display: grid;
 		grid-template-columns: 1fr 1fr;
 		gap: var(--space-6);
+	}
+
+	.transcript-lock {
+		display: flex;
+		align-items: center;
+		gap: var(--space-4);
+		padding: var(--space-5) var(--space-6);
+		background: var(--color-surface);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+	}
+
+	.transcript-lock :global(svg) {
+		color: var(--color-primary);
+		flex: none;
+	}
+
+	.transcript-lock-copy {
+		flex: 1;
+	}
+
+	.transcript-lock-copy h3 {
+		margin: 0 0 var(--space-1);
+		font-size: var(--text-base);
+		font-weight: 600;
+		color: var(--color-foreground);
+	}
+
+	.transcript-lock-copy p {
+		margin: 0;
+		font-size: var(--text-sm);
+		color: var(--color-muted-foreground);
+	}
+
+	.transcript-lock-cta {
+		flex: none;
+		font-size: var(--text-sm);
+		font-weight: 600;
+		padding: var(--space-2) var(--space-4);
+		border-radius: var(--radius-full);
+		text-decoration: none;
+		background: var(--color-primary);
+		color: var(--color-primary-foreground);
 	}
 
 	@media (max-width: 768px) {

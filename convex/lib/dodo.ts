@@ -164,6 +164,27 @@ export function parseWebhookEvent(payload: string): WebhookEvent {
 }
 
 /**
+ * Derive a stable idempotency key for a webhook event.
+ *
+ * Prefers the provider's own event id. When absent, falls back to a deterministic
+ * composite of stable payload fields so a retried delivery of the same logical
+ * event collapses to the same key (and is therefore de-duplicated), while genuinely
+ * distinct events produce distinct keys.
+ */
+export function deriveWebhookEventId(event: WebhookEvent): string {
+	if (event.id) return event.id;
+	if (event.event_id) return event.event_id;
+
+	const { type, data } = event;
+	const customerEmail = data?.customer?.email ?? data?.customer_email ?? '';
+
+	if (data?.subscription_id) {
+		return `${type}:${data.subscription_id}:${data?.status ?? ''}`;
+	}
+	return `${type}:${customerEmail}:${data?.current_period_end ?? data?.status ?? 'unknown'}`;
+}
+
+/**
  * Cancel a subscription via DodoPayments API
  */
 export async function cancelDodoSubscription(subscriptionId: string): Promise<void> {
@@ -196,15 +217,12 @@ export async function cancelDodoSubscription(subscriptionId: string): Promise<vo
  * Product IDs - set these in DodoPayments dashboard
  */
 export const PRODUCT_IDS = {
-	indie: process.env.DODO_INDIE_PRODUCT_ID || 'prod_indie',
-	startup: process.env.DODO_STARTUP_PRODUCT_ID || 'prod_startup',
+	starter: process.env.DODO_STARTER_PRODUCT_ID || 'prod_starter',
+	growth: process.env.DODO_GROWTH_PRODUCT_ID || 'prod_growth',
+	agency: process.env.DODO_AGENCY_PRODUCT_ID || 'prod_agency',
 } as const;
 
 /**
- * Plan limits — single source of truth for all plan constraints
+ * Plan limits — re-exported from the pure entitlements core (single source of truth).
  */
-export const PLAN_LIMITS = {
-	free: { scans: 5, projects: 1, competitors: 2, queries: 10 },
-	indie: { scans: -1, projects: 1, competitors: 3, queries: 30 }, // -1 = unlimited
-	startup: { scans: -1, projects: 5, competitors: 10, queries: 100 },
-} as const;
+export { PLAN_LIMITS } from './entitlements';

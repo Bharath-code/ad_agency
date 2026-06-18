@@ -18,34 +18,49 @@ interface Faq {
 
 const pricing: PricingPlan[] = [
 	{
-		name: 'Starter',
+		name: 'Free',
 		price: '$0',
 		desc: 'A baseline diagnostic for one product.',
-		feats: ['1 project', '30 buyer prompts', 'Snapshot report', 'Email summary'],
+		feats: ['1 project', '10 buyer prompts', '5 scans total', 'Snapshot report'],
 		cta: 'Run free diagnostic',
 		featured: false,
 	},
 	{
-		name: 'Growth',
-		price: '$79',
+		name: 'Starter',
+		price: '$99',
 		period: '/mo',
-		desc: 'For B2B SaaS teams optimizing acquisition.',
+		desc: 'For a solo founder optimizing one product.',
 		feats: [
+			'1 project',
+			'30 buyer prompts',
 			'Unlimited scans',
+			'Raw transcripts & evidence',
 			'Weekly visibility report',
+		],
+		cta: 'Start free trial',
+		featured: false,
+	},
+	{
+		name: 'Growth',
+		price: '$249',
+		period: '/mo',
+		desc: 'For B2B SaaS growth teams.',
+		feats: [
+			'5 projects',
+			'75 buyer prompts/project',
+			'Multi-model consensus',
 			'Competitor win/loss tracking',
 			'Prioritized fix plan',
-			'Raw transcripts & evidence',
 		],
 		cta: 'Start free trial',
 		featured: true,
 	},
 	{
-		name: 'Scale',
-		price: '$199',
+		name: 'Agency',
+		price: '$799',
 		period: '/mo',
-		desc: 'For multi-product teams and agencies.',
-		feats: ['Everything in Growth', '5 projects', 'Daily monitoring', 'Client-ready reports', 'Slack alerts'],
+		desc: 'For agencies and fractional CMOs.',
+		feats: ['25 projects', 'Everything in Growth', 'Client-ready reports', 'White-label exports', 'Priority support'],
 		cta: 'Start free trial',
 		featured: false,
 	},
@@ -74,7 +89,7 @@ const faqs: Faq[] = [
 	},
 	{
 		q: 'Can agencies use this for clients?',
-		a: 'Yes. The Scale plan supports multiple projects with client-ready reporting.',
+		a: 'Yes. The Agency plan supports multiple client projects with client-ready reporting.',
 	},
 ];
 
@@ -183,8 +198,8 @@ let openFaq = $state<number | null>(0);
 	/* ── Plans ── */
 	.plans {
 		display: grid;
-		grid-template-columns: repeat(3, 1fr);
-		gap: 1.25rem;
+		grid-template-columns: repeat(4, 1fr);
+		gap: 1rem;
 	}
 	.plan {
 		position: relative;

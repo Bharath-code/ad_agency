@@ -16,6 +16,7 @@ import {
 	type ModelVisibility,
 } from './lib/consensus';
 import { PLAN_LIMITS } from './lib/dodo';
+import { canScan, hasFeature } from './lib/entitlements';
 import { createClaudeProvider } from './lib/llm/claude';
 import { createOpenAIProvider } from './lib/llm/openai';
 import { ProviderRouter } from './lib/llm/router';
@@ -266,11 +267,11 @@ export const runScan = action({
 		failedModels: string[];
 	}> => {
 		const user = await requireUserForAction(ctx);
-		const plan = user.plan as keyof typeof PLAN_LIMITS;
-		const limit = PLAN_LIMITS[plan].scans;
 
-		if (limit !== -1 && user.scansUsed >= limit) {
-			throw new Error(`Scan limit reached (${limit}). Please upgrade your plan.`);
+		if (!canScan(user.plan, user.scansUsed)) {
+			throw new Error(
+				`Scan limit reached (${PLAN_LIMITS[user.plan].scans}). Please upgrade your plan.`,
+			);
 		}
 
 		const project = await ctx.runQuery(api.projects.get, { projectId: args.projectId });
@@ -440,17 +441,16 @@ export const runScanForProject = internalAction({
 		const user = await ctx.runQuery(internal.users.getById, { userId: project.userId });
 		if (!user) return { scanId: '', resultsCount: 0, error: 'User not found' };
 
-		// Verify user is on a paid plan for auto-scans
-		if (user.plan === 'free') {
-			console.log(`Skipping auto-scan for free user ${user.email}`);
+		// Verify the plan unlocks recurring (auto) scans
+		if (!hasFeature(user.plan, 'recurringScans')) {
+			console.log(`Skipping auto-scan for ${user.plan} user ${user.email}`);
 			return { scanId: '', resultsCount: 0 };
 		}
 
-		const plan = user.plan as keyof typeof PLAN_LIMITS;
-		const limit = PLAN_LIMITS[plan].scans;
-
-		if (limit !== -1 && user.scansUsed >= limit) {
-			console.log(`User ${user.email} has reached scan limit (${limit}), skipping auto-scan`);
+		if (!canScan(user.plan, user.scansUsed)) {
+			console.log(
+				`User ${user.email} has reached scan limit (${PLAN_LIMITS[user.plan].scans}), skipping auto-scan`,
+			);
 			return { scanId: '', resultsCount: 0 };
 		}
 

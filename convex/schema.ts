@@ -7,7 +7,12 @@ export default defineSchema({
 		email: v.string(),
 		name: v.optional(v.string()),
 		avatarUrl: v.optional(v.string()),
-		plan: v.union(v.literal('free'), v.literal('indie'), v.literal('startup')),
+		plan: v.union(
+			v.literal('free'),
+			v.literal('starter'),
+			v.literal('growth'),
+			v.literal('agency'),
+		),
 		scansUsed: v.number(), // For free tier limit (5 scans)
 		createdAt: v.number(),
 	})
@@ -164,7 +169,7 @@ export default defineSchema({
 	subscriptions: defineTable({
 		userId: v.id('users'),
 		dodoSubscriptionId: v.string(),
-		plan: v.union(v.literal('indie'), v.literal('startup')),
+		plan: v.union(v.literal('starter'), v.literal('growth'), v.literal('agency')),
 		status: v.union(v.literal('active'), v.literal('canceled'), v.literal('past_due')),
 		currentPeriodEnd: v.number(),
 		createdAt: v.number(),
