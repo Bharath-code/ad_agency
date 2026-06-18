@@ -4,6 +4,12 @@
 	import { api } from "$convex/_generated/api";
 	import type { Id } from "$convex/_generated/dataModel";
 	import type { PromptEvidence } from "$convex/lib/evidence";
+	import type {
+		ActionQueueView,
+		ActionStatus,
+		ActionType,
+	} from "$convex/lib/actionQueue";
+	import ActionQueue from "$lib/components/dashboard/ActionQueue.svelte";
 	import CompetitorWinLoss from "$lib/components/dashboard/CompetitorWinLoss.svelte";
 	import EvidenceModal from "$lib/components/dashboard/EvidenceModal.svelte";
 	import RecommendedFixes from "$lib/components/dashboard/RecommendedFixes.svelte";
@@ -107,6 +113,7 @@
 	let transcriptData = $state<TranscriptResult[]>([]);
 	let modelComparisonData = $state<ModelComparisonData>([]);
 	let evidenceData = $state<PromptEvidence[]>([]);
+	let actionQueueData = $state<ActionQueueView | null>(null);
 	let selectedEvidence = $state<PromptEvidence | null>(null);
 	let selectedModelToScan = $state<string>("all");
 
@@ -188,7 +195,7 @@
 	async function loadDashboard(projectId: Id<"projects">) {
 		try {
 			// Load all data in parallel
-			const [summary, competitors, transcripts, comparisons, evidence] =
+			const [summary, competitors, transcripts, comparisons, evidence, actions] =
 				await withTimeout(
 					Promise.all([
 						convex.query(api.results.getDashboardSummary, {
@@ -206,6 +213,9 @@
 						convex.query(api.results.getEvidence, {
 							projectId,
 						}),
+						convex.query(api.actionItems.list, {
+							projectId,
+						}),
 					]),
 				);
 
@@ -214,6 +224,7 @@
 			transcriptData = transcripts;
 			modelComparisonData = comparisons;
 			evidenceData = evidence;
+			actionQueueData = actions;
 			dashboardError = null;
 		} catch (error) {
 			if (import.meta.env.VITE_BYPASS_AUTH === "true") {
@@ -424,6 +435,76 @@
 						createdAt: Date.now(),
 					},
 				];
+				actionQueueData = {
+					items: [
+						{
+							_id: "mock-action-1",
+							queryId: "mock-miss-1",
+							type: "comparison",
+							title: "Comparison: competitor analysis ai",
+							status: "shipped",
+							baselinePosition: "not_mentioned",
+							baselineScanId: "old-scan",
+							baselineConfidence: "high",
+							competitorAtCreation: "AdTechPro",
+							createdAt: Date.now(),
+							updatedAt: Date.now(),
+							shippedAt: Date.now(),
+							queryText: "competitor analysis ai",
+							currentPosition: "secondary",
+							movement: {
+								from: "not_mentioned",
+								to: "secondary",
+								direction: "improved",
+								delta: 1,
+							},
+							priorityScore: 6,
+						},
+						{
+							_id: "mock-action-2",
+							queryId: "mock-win-1",
+							type: "positioning",
+							title: "Positioning: best ad agency tools",
+							status: "planned",
+							baselinePosition: "not_mentioned",
+							baselineConfidence: "medium",
+							createdAt: Date.now(),
+							updatedAt: Date.now(),
+							queryText: "best ad agency tools",
+							currentPosition: null,
+							movement: {
+								from: "not_mentioned",
+								to: null,
+								direction: "pending",
+								delta: 0,
+							},
+							priorityScore: 4,
+						},
+					],
+					topPriority: [
+						{
+							_id: "mock-action-2",
+							queryId: "mock-win-1",
+							type: "positioning",
+							title: "Positioning: best ad agency tools",
+							status: "planned",
+							baselinePosition: "not_mentioned",
+							baselineConfidence: "medium",
+							createdAt: Date.now(),
+							updatedAt: Date.now(),
+							queryText: "best ad agency tools",
+							currentPosition: null,
+							movement: {
+								from: "not_mentioned",
+								to: null,
+								direction: "pending",
+								delta: 0,
+							},
+							priorityScore: 4,
+						},
+					],
+					counts: { planned: 1, shipped: 1, ignored: 0, archived: 0 },
+				};
 				dashboardError = null;
 			} else {
 				console.error("Failed to load dashboard from Convex:", error);
@@ -432,6 +513,7 @@
 				transcriptData = [];
 				modelComparisonData = [];
 				evidenceData = [];
+				actionQueueData = null;
 				dashboardError =
 					"Unable to load dashboard data. Check backend connectivity and try again.";
 			}
@@ -499,6 +581,53 @@
 	function handleProjectChange(e: Event) {
 		const target = e.currentTarget as HTMLSelectElement;
 		selectProject(target.value as Id<"projects">);
+	}
+
+	async function reloadActionQueue() {
+		if (!selectedProjectId) return;
+		try {
+			actionQueueData = await convex.query(api.actionItems.list, {
+				projectId: selectedProjectId,
+			});
+		} catch (error) {
+			console.error("Failed to reload action queue:", error);
+		}
+	}
+
+	async function createAction(input: {
+		queryId: string;
+		type: ActionType;
+		title: string;
+		detail?: string;
+	}) {
+		if (!selectedProjectId) return;
+		try {
+			await convex.mutation(api.actionItems.create, {
+				projectId: selectedProjectId,
+				queryId: input.queryId as Id<"intentQueries">,
+				type: input.type,
+				title: input.title,
+				detail: input.detail,
+			});
+			toasts.success("Action added to your queue.");
+			await reloadActionQueue();
+		} catch (error) {
+			const message = error instanceof Error ? error.message : "Unknown error";
+			toasts.error(`Could not add action: ${message}`);
+		}
+	}
+
+	async function updateActionStatus(actionId: string, status: ActionStatus) {
+		try {
+			await convex.mutation(api.actionItems.updateStatus, {
+				actionId: actionId as Id<"actionItems">,
+				status,
+			});
+			await reloadActionQueue();
+		} catch (error) {
+			const message = error instanceof Error ? error.message : "Unknown error";
+			toasts.error(`Could not update action: ${message}`);
+		}
 	}
 
 	function downloadCSV() {
@@ -701,6 +830,15 @@
 				/>
 			</div>
 
+			<!-- Action Queue Section (Phase 7) -->
+			<div class="action-section">
+				<ActionQueue
+					data={actionQueueData}
+					onUpdateStatus={updateActionStatus}
+					onSelectEvidence={openEvidence}
+				/>
+			</div>
+
 			<div class="insights-grid">
 				<TopWins wins={dashboardData.topWins ?? []} onSelect={openEvidence} />
 				<TopMisses misses={dashboardData.topMisses ?? []} onSelect={openEvidence} />
@@ -734,6 +872,7 @@
 <EvidenceModal
 	evidence={selectedEvidence}
 	onClose={() => (selectedEvidence = null)}
+	onCreateAction={createAction}
 />
 
 <style>
