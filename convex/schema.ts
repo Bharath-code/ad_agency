@@ -165,6 +165,24 @@ export default defineSchema({
 		createdAt: v.number(),
 	}).index('by_project', ['projectId']),
 
+	// Client Reports table (Phase 10 — agency share links + white-label exports)
+	clientReports: defineTable({
+		projectId: v.id('projects'),
+		userId: v.id('users'), // owning agency
+		token: v.string(), // unguessable public share slug
+		reportTitle: v.string(),
+		agencyName: v.optional(v.string()), // white-label branding
+		includeEvidence: v.boolean(),
+		includeActions: v.boolean(),
+		revoked: v.boolean(),
+		expiresAt: v.optional(v.number()), // optional auto-expiry (user decision)
+		createdAt: v.number(),
+		updatedAt: v.number(),
+	})
+		.index('by_project', ['projectId'])
+		.index('by_user', ['userId'])
+		.index('by_token', ['token']),
+
 	// Subscriptions table (DodoPayments)
 	subscriptions: defineTable({
 		userId: v.id('users'),

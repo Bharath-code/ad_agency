@@ -11,8 +11,10 @@ import RecommendedFixes from '$lib/components/dashboard/RecommendedFixes.svelte'
 import TopMisses from '$lib/components/dashboard/TopMisses.svelte';
 import TopWins from '$lib/components/dashboard/TopWins.svelte';
 import VisibilityScore from '$lib/components/dashboard/VisibilityScore.svelte';
+import ClientReportPanel from '$lib/components/project/ClientReportPanel.svelte';
 import CompetitorList from '$lib/components/project/CompetitorList.svelte';
 import ScanButton from '$lib/components/project/ScanButton.svelte';
+import { hasFeature } from '$convex/lib/entitlements';
 
 import Input from '$lib/components/ui/input.svelte';
 import Label from '$lib/components/ui/label.svelte';
@@ -102,6 +104,9 @@ const editUrlError = $derived(
 );
 
 const projectId = $derived($page.params.id as Id<'projects'>);
+const clientReportsEntitled = $derived(
+	$convexUser ? hasFeature($convexUser.plan, 'clientReports') : false,
+);
 
 onMount(() => {
 	loadProject();
@@ -453,6 +458,8 @@ function formatDate(timestamp: number): string {
                         </dl>
                     {/if}
                 </div>
+
+                <ClientReportPanel {projectId} entitled={clientReportsEntitled} />
             </aside>
         </div>
     {/if}

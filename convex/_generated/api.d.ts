@@ -9,6 +9,7 @@
  */
 
 import type * as actionItems from "../actionItems.js";
+import type * as clientReports from "../clientReports.js";
 import type * as competitors from "../competitors.js";
 import type * as cache from "../cache.js";
 import type * as crons from "../crons.js";
@@ -34,6 +35,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   actionItems: typeof actionItems;
+  clientReports: typeof clientReports;
   cache: typeof cache;
   competitors: typeof competitors;
   crons: typeof crons;

@@ -33,7 +33,7 @@ so context stays clean. Repeat this loop for every phase:
 - [x] **Phase 7 — Recommendation action queue** — branch `feat/phase-7-action-queue`
 - [x] **Phase 8 — Weekly report & retention** — branch `feat/phase-8-weekly-report`
 - [x] **Phase 9 — Billing & entitlements** — branch `feat/phase-9-billing` (4-tier ladder reconciled: free/$99/$249/$799)
-- [ ] **Phase 10 — Agency reports** ← NEXT
+- [x] **Phase 10 — Agency reports** — branch `feat/phase-10-agency-reports` (client share links + white-label HTML export)
 
 > Note: the original numbered "Phase 1: Rename" is done (tracked above as Phase 0 + the redesign).
 > Numbering below keeps the original document's phase numbers.
@@ -253,9 +253,19 @@ Add multi-client reporting, share links, and exportable reports.
 
 ### Acceptance Criteria
 
-- [ ] Agency users can manage multiple client projects.
-- [ ] Reports include score, competitor wins, evidence, and actions.
-- [ ] Client-safe share links hide internal debug data.
-- [ ] White-label exports are available on agency plan.
-- [ ] Report access is permission-checked.
+- [x] Agency users can manage multiple client projects. (Agency tier = 25-project cap +
+      `multiProject` from Phase 9; reports are created per project.)
+- [x] Reports include score, competitor wins, evidence, and actions. (`buildClientReport` /
+      `composeReport` assemble all four; evidence/actions toggleable per link.)
+- [x] Client-safe share links hide internal debug data. (Public `getShared` composes only typed
+      fields — never `rawResponse`/system prompts; 128-bit hex token; `{}`-escaped rendering.)
+- [x] White-label exports are available on agency plan. (`getExport` → self-contained branded HTML,
+      gated by `hasFeature('clientReports')`.)
+- [x] Report access is permission-checked. (create/list/update/revoke/export → owner + Agency-plan
+      gate; share link → token + `isReportAccessible` revoke/expiry check.)
+
+> **Decisions (user):** share-link access = revoke + optional expiry; white-label export = a
+> self-contained branded HTML file. Pure core `convex/lib/clientReport.ts` (build/render/access/token),
+> thin shell `convex/clientReports.ts`. New `clientReports` table. Tests: `tests/unit/clientReport.test.ts`
+> (15). Hand-added `clientReports` to `_generated/api.d.ts` (codegen needs deploy creds).
 
