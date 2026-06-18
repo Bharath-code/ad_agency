@@ -5,6 +5,7 @@ import { internal } from './_generated/api';
 import { action, internalAction } from './_generated/server';
 import { weeklyReportTemplate, welcomeEmailTemplate } from './lib/emailTemplates';
 import { sendEmail } from './lib/resend';
+import { buildWeeklyReport } from './lib/weeklyReport';
 
 /**
  * Send weekly visibility report email
@@ -36,42 +37,47 @@ export const sendWeeklyReport = internalAction({
 			projectId: args.projectId,
 		});
 
-		const previousScore = previousReport?.currentScore ?? 0;
-		const currentScore = summary.visibilityScore;
-		const topFixes = summary.recommendedFixes
-			.slice(0, 3)
-			.map((fix) => fix.positioningFix ?? fix.contentSuggestion ?? fix.messagingFix)
-			.filter((fix): fix is string => Boolean(fix));
+		const report = buildWeeklyReport(summary, previousReport);
 
 		const baseUrl = process.env.PUBLIC_APP_URL || 'http://localhost:5173';
 
 		const html = weeklyReportTemplate({
 			projectName: project.name,
-			previousScore,
-			currentScore,
-			scoreChange: currentScore - previousScore,
-			topWins: summary.topWins.slice(0, 3).map((w) => w.query),
-			topMisses: summary.topMisses.slice(0, 3).map((m) => m.query),
-			topFixes,
+			previousScore: report.previousScore,
+			currentScore: report.currentScore,
+			scoreChange: report.scoreChange,
+			topWins: report.topWins,
+			topMisses: report.topMisses,
+			topFixes: report.topFixes,
 			dashboardUrl: `${baseUrl}/app/projects/${args.projectId}`,
 		});
 
-		await sendEmail({
-			to: user.email,
-			subject: `Weekly Visibility Report: ${project.name} - Score ${currentScore}`,
-			html,
-		});
+		const persist = (status: 'sent' | 'failed', emailError?: string) =>
+			ctx.runMutation(internal.weeklyReports.create, {
+				projectId: args.projectId,
+				userId: args.userId,
+				previousScore: report.previousScore,
+				currentScore: report.currentScore,
+				scoreChange: report.scoreChange,
+				newCompetitorMentions: report.newCompetitorMentions,
+				topFixes: report.topFixes,
+				status,
+				emailError,
+			});
 
-		await ctx.runMutation(internal.weeklyReports.create, {
-			projectId: args.projectId,
-			userId: args.userId,
-			previousScore,
-			currentScore,
-			scoreChange: currentScore - previousScore,
-			newCompetitorMentions: [],
-			topFixes,
-		});
+		try {
+			await sendEmail({
+				to: user.email,
+				subject: `Weekly Visibility Report: ${project.name} - Score ${report.currentScore}`,
+				html,
+			});
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			await persist('failed', message);
+			throw error;
+		}
 
+		await persist('sent');
 		return { success: true };
 	},
 });
